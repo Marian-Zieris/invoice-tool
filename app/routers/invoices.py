@@ -163,10 +163,15 @@ def update_line_item(item_id: int, payload: LineItemUpdate, db: Session = Depend
     if changes:
         item.is_corrected = True
 
+    invoice = item.invoice
+    if "amount" in changes:
+        # invoice.total_amount je vlastní sloupec, ne odvozená hodnota - bez tohohle by
+        # ruční oprava částky položky zůstala neviditelná v hlavičce i patičce tabulky.
+        invoice.total_amount = sum(existing.amount for existing in invoice.line_items)
+
     db.commit()
     db.refresh(item)
 
-    invoice = item.invoice
     if invoice.status == InvoiceStatus.NEEDS_REVIEW.value:
         invoice.status = InvoiceStatus.REVIEWED.value
         db.commit()
