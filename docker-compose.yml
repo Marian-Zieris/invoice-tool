@@ -21,6 +21,10 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    volumes:
+      - uploads_data:/app/uploads
+      - exports_data:/app/exports
+      - excel_templates_data:/app/excel_templates
     depends_on:
       db:
         condition: service_healthy
@@ -37,3 +41,6 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:
+  exports_data:
+  excel_templates_data:
