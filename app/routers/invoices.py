@@ -1,3 +1,4 @@
+from datetime import date
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends
@@ -19,6 +20,13 @@ class LineItemUpdate(BaseModel):
     category: Optional[str] = None
     amount: Optional[float] = None
     confidence_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+
+
+class InvoiceUpdate(BaseModel):
+    supplier_name: Optional[str] = None
+    invoice_date: Optional[date] = None
+    total_amount: Optional[float] = None
+    currency: Optional[str] = None
 
 
 class ExportRequest(BaseModel):
@@ -70,6 +78,38 @@ def get_invoice(invoice_id: int, db: Session = Depends(get_db), current_customer
     payload = _invoice_summary_payload(invoice)
     payload["raw_ocr_text"] = invoice.raw_ocr_text or ""
     return api_success(payload, "Invoice fetched successfully.")
+
+
+@router.patch("/invoices/{invoice_id}")
+def update_invoice(
+    invoice_id: int,
+    payload: InvoiceUpdate,
+    db: Session = Depends(get_db),
+    current_customer: Customer = Depends(get_current_customer),
+):
+    """Ruční oprava vytěžených hlavičkových údajů faktury (dodavatel, datum, částka, měna).
+
+    Stejný princip jako PATCH /items/{id}: LLM extrakce se může splést nebo si nebýt jistá
+    (typicky měna u cizojazyčného dokladu) - tohle je jediný způsob, jak takovou hodnotu
+    zákazník může opravit, protože žádná z těchto hodnot se jinak přepsat nedá.
+    """
+    invoice = db.get(Invoice, invoice_id)
+    if invoice is None or invoice.customer_id != current_customer.id:
+        return JSONResponse(status_code=404, content=api_error("Invoice not found.", "invoice_not_found"))
+
+    changes = payload.model_dump(exclude_unset=True)
+    for field, value in changes.items():
+        setattr(invoice, field, value)
+
+    if changes and invoice.status == InvoiceStatus.NEEDS_REVIEW.value:
+        invoice.status = InvoiceStatus.REVIEWED.value
+
+    db.commit()
+    db.refresh(invoice)
+
+    result = _invoice_summary_payload(invoice)
+    result["raw_ocr_text"] = invoice.raw_ocr_text or ""
+    return api_success(result, "Invoice updated successfully.")
 
 
 @router.get("/invoices/{invoice_id}/items")

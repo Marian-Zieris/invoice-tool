@@ -54,7 +54,7 @@ def _build_system_prompt(categories: List[str]) -> str:
     schema_hint = {
         "supplier_name": "string nebo null",
         "invoice_date": "YYYY-MM-DD nebo null",
-        "currency": "ISO kod meny, napr. CZK",
+        "currency": "ISO 4217 kod meny (CZK, EUR, USD, IDR, ...)",
         "total_amount": "cislo nebo null",
         "line_items": [
             {
@@ -73,7 +73,10 @@ def _build_system_prompt(categories: List[str]) -> str:
         f"Povolene kategorie polozek: {', '.join(categories)}.\n"
         "Pokud si nejsi jisty hodnotou, sniz confidence_score smerem k 0, ale NEVYMYSLI si cislo ani nazev - "
         "pokud hodnotu v textu nenajdes, pouzij null (u supplier_name/invoice_date/total_amount) nebo polozku vynech.\n"
-        "Castky pis jako cisla bez mezer a bez symbolu meny."
+        "Castky pis jako cisla bez mezer a bez symbolu meny.\n"
+        "Menu urcuj aktivne z textu - hledej symboly (Kc, Kč, $, €, Rp, Rs, £) i psane kody (CZK, EUR, USD, IDR). "
+        "Teprve kdyz text neobsahuje vubec zadnou stopu po mene, pouzij CZK jako rozumny vychozi odhad "
+        "(nikdy nevracej null u currency)."
     )
 
 
