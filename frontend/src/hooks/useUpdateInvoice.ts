@@ -4,7 +4,9 @@ import type { InvoiceDetail } from "../api/types";
 
 interface UpdateInvoiceVariables {
   invoiceId: number;
-  changes: Partial<Pick<InvoiceDetail, "supplier_name" | "invoice_date" | "total_amount" | "currency">>;
+  // total_amount se sem záměrně nedává - je to vždy odvozený součet položek, ne
+  // samostatná editovatelná hodnota (viz app/routers/invoices.py InvoiceUpdate).
+  changes: Partial<Pick<InvoiceDetail, "supplier_name" | "invoice_date" | "currency">>;
 }
 
 export function useUpdateInvoice() {

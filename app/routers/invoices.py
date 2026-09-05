@@ -26,9 +26,11 @@ class LineItemUpdate(BaseModel):
 
 
 class InvoiceUpdate(BaseModel):
+    # total_amount se sem záměrně nedává - je to vždy odvozená hodnota (součet položek,
+    # viz pipeline.py a update_line_item níže), ruční přepis by ji jen znovu rozjel od
+    # skutečných dat.
     supplier_name: Optional[str] = None
     invoice_date: Optional[date] = None
-    total_amount: Optional[float] = None
     currency: Optional[str] = None
 
 

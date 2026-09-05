@@ -66,9 +66,7 @@ def process_invoice(invoice_id: int) -> None:
 
         invoice.supplier_name = extracted.supplier_name
         invoice.invoice_date = _parse_date(extracted.invoice_date)
-        invoice.total_amount = extracted.total_amount
         invoice.currency = extracted.currency or "CZK"
-        invoice.extraction_warning = extracted.extraction_warning
 
         for item in extracted.line_items:
             db.add(LineItem(
@@ -82,6 +80,27 @@ def process_invoice(invoice_id: int) -> None:
                 amount_without_vat=item.amount_without_vat,
                 vat_rate=item.vat_rate,
             ))
+
+        # Celkova castka je VZDY soucet skutecne vytezenych polozek, ne cislo, ktere LLM
+        # precetlo z radku "Celkem" na dokladu - jinak by fakturu s chybejicimi polozkami
+        # (viz extraction_warning nize) klidne ukazovala jako "kompletni" s cislem, ktere
+        # neodpovida tomu, co je v tabulce videt a jde zkontrolovat.
+        items_sum = sum(item.amount for item in extracted.line_items)
+        warning = extracted.extraction_warning
+        if extracted.line_items:
+            invoice.total_amount = items_sum
+            if extracted.total_amount is not None and abs(items_sum - extracted.total_amount) > 1.0:
+                mismatch_note = (
+                    f"Součet položek ({items_sum:.2f}) neodpovídá součtu uvedenému na dokladu "
+                    f"({extracted.total_amount:.2f}) - doklad pravděpodobně obsahuje další nepřečtené položky."
+                )
+                warning = f"{warning} {mismatch_note}" if warning else mismatch_note
+        else:
+            # Nic se nevytezilo jako polozka, ale LLM aspon precetlo celkovou castku -
+            # lepsi nez 0/None, i kdyz to neni rozepsatelne na jednotlive radky.
+            invoice.total_amount = extracted.total_amount
+
+        invoice.extraction_warning = warning
 
         invoice.status = InvoiceStatus.NEEDS_REVIEW.value
         db.commit()
