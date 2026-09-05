@@ -1,0 +1,18 @@
+.env
+.git
+.gitignore
+__pycache__/
+*.pyc
+.venv/
+postgres_data/
+.DS_Store
+README.md
+.idea/
+.mcp.json
+*.db
+
+# Runtime data and local datasets - never needed inside the build context
+uploads/
+exports/
+excel_templates/
+image/

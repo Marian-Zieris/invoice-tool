@@ -1,0 +1,18 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+postgres_data/
+.idea/
+.mcp.json
+.pytest_cache/
+*.db
+
+# Runtime data - uploaded files, generated exports, admin-uploaded excel templates
+uploads/
+exports/
+excel_templates/
+
+# Local test/eval datasets (receipts etc.) - not part of the application
+image/
