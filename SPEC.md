@@ -45,7 +45,7 @@ Webová aplikace pro řemeslníky a mikrofirmy. Zákazník se přihlásí, nahra
 | Backend | FastAPI (Python 3.11) | |
 | ORM / migrace | SQLAlchemy 2.0 + Alembic | **Nikdy nepoužívat `Base.metadata.create_all` v běžícím projektu** — jen Alembic migrace |
 | DB | PostgreSQL | |
-| Frontend | Jinja2 templates + HTMX | Žádný React/Vue — zbytečná komplexita pro rozsah MVP |
+| Frontend | React + TypeScript + Vite + Tailwind v4 (`frontend/`) | Samostatný Docker kontejner (nginx), volá backend přes `/api/*` reverse proxy — API kontejner o frontendu neví |
 | Preprocessing obrázků | OpenCV (`opencv-python-headless`) | |
 | OCR | Tesseract (`pytesseract`) | Vyžaduje binárku `tesseract-ocr` + `tesseract-ocr-ces` nainstalovanou v Dockerfile — **ověřit funkčnost přes `tesseract --version` a `tesseract --list-langs` v kontejneru, ne jen předpokládat** |
 | PDF → obrázek | `pdf2image` (potřebuje `poppler-utils` v Dockerfile) | |
@@ -131,11 +131,13 @@ uploaded → processing → needs_review → reviewed → exported
 - Model musí vracet `confidence_score` pro každou položku — to pohání zvýraznění v review UI (práh např. < 0.6 = zvýraznit).
 - Výstup se parsuje a validuje (např. přes Pydantic model) — při chybě parsování jde faktura do `extraction_failed`, ne do potichu prázdného výsledku.
 
-## 9. Review UI (Jinja2 + HTMX)
+## 9. Review UI (React SPA, `frontend/`)
 
-- Stránka `/invoices` — tabulka faktur se stavy (barevně odlišené: needs_review žlutě, ocr_failed/extraction_failed červeně, reviewed/exported zeleně).
-- Stránka `/invoices/{id}` — tabulka položek (`st.data_editor`-like chování přes HTMX): řádky s `confidence_score` < práh mají zvýrazněné pozadí, inline editace hodnoty přes `PATCH /items/{id}` bez reloadu stránky.
-- Tlačítko "Export" — buď jedna faktura, nebo hromadně přes checkboxy.
+- Jedna obrazovka `/` (po přihlášení) — vlevo seznam faktur se stavy (barevně odlišené: needs_review žlutě/warn, ocr_failed/extraction_failed červeně, reviewed/exported zeleně), vpravo detail vybrané faktury.
+- Detail: tabulka položek, řádky s `confidence_score` < 0.6 mají zvýrazněné pozadí a varovnou ikonu, inline editace (popis/kategorie/částka) přes `PATCH /items/{id}` bez reloadu — klik na buňku, uložení při rozostření/Enter.
+- Tlačítko "Exportovat" — buď jedna faktura, nebo hromadně přes checkboxy v seznamu.
+- Vizuální styl: "liquid glass" (matné panely, jemné barevné gradienty na pozadí), přepínač světlý/tmavý režim (výchozí tmavý), akcentní barva měď/bronz.
+- Běží jako čistě statická produkční build (Vite → nginx) ve vlastním kontejneru; veškerá komunikace s API jde přes `/api/*`, které nginx přeposílá na `web:8000` a strhává prefix — frontend kontejner je jediné místo, které zná existenci obou služeb, backend o něm neví vůbec.
 
 ## 10. Export
 
@@ -160,7 +162,7 @@ MVP je hotové, když:
 3. LLM extrakce vrátí validní strukturovaná data se smysluplným `confidence_score` u stejné testovací sady.
 4. Review UI zobrazí data a zvýrazní nejisté hodnoty; oprava položky se reálně uloží do DB.
 5. Export vytvoří `.xlsx` soubor odpovídající šabloně zákazníka a soubor se dá bez chyby otevřít v Excelu.
-6. Celý stack (web + db) naběhne přes `docker compose up` bez ručních zásahů (migrace se spustí automaticky).
+6. Celý stack (web + db + frontend) naběhne přes `docker compose up` bez ručních zásahů (migrace se spustí automaticky).
 7. Žádné tajemství (hesla, DB credentials) nejsou commitnuté v gitu.
 
 ## 13. Známé chyby z předchozích iterací — nedělat znovu

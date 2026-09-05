@@ -16,3 +16,7 @@ excel_templates/
 
 # Local test/eval datasets (receipts etc.) - not part of the application
 image/
+
+# Frontend (Vite/React) build artifacts and dependencies
+frontend/node_modules/
+frontend/dist/

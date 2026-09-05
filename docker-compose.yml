@@ -26,5 +26,14 @@ services:
         condition: service_healthy
     restart: always
 
+  frontend:
+    build: ./frontend
+    container_name: invoice_frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - web
+    restart: always
+
 volumes:
   postgres_data:
