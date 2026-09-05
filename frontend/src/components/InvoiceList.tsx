@@ -1,8 +1,11 @@
+import { useState } from "react";
 import type { InvoiceSummary } from "../api/types";
 import { formatAmount, formatDate, formatDateTime } from "../lib/format";
 import { useDeleteInvoice } from "../hooks/useDeleteInvoice";
+import { useMergeInvoices } from "../hooks/useMergeInvoices";
+import { ApiError } from "../api/client";
 import { StatusPill } from "./StatusPill";
-import { ExportIcon, TrashIcon } from "./icons";
+import { ExportIcon, MergeIcon, TrashIcon } from "./icons";
 
 interface InvoiceListProps {
   invoices: InvoiceSummary[];
@@ -10,6 +13,7 @@ interface InvoiceListProps {
   selectedId: number | null;
   onSelect: (id: number) => void;
   onDeleted: (id: number) => void;
+  onMerged: (newInvoiceId: number) => void;
   selectedForExport: Set<number>;
   onToggleExport: (id: number) => void;
   onToggleAll: () => void;
@@ -27,6 +31,7 @@ export function InvoiceList({
   selectedId,
   onSelect,
   onDeleted,
+  onMerged,
   selectedForExport,
   onToggleExport,
   onToggleAll,
@@ -35,10 +40,20 @@ export function InvoiceList({
 }: InvoiceListProps) {
   const allSelected = invoices.length > 0 && selectedForExport.size === invoices.length;
   const deleteInvoice = useDeleteInvoice();
+  const mergeInvoices = useMergeInvoices();
+  const [mergeError, setMergeError] = useState<string | null>(null);
+
+  function handleMerge() {
+    setMergeError(null);
+    mergeInvoices.mutate(Array.from(selectedForExport), {
+      onSuccess: (merged) => onMerged(merged.id),
+      onError: (err) => setMergeError(err instanceof ApiError ? err.message : "Sloučení se nezdařilo."),
+    });
+  }
 
   return (
     <section className="flex min-h-0 flex-col border-r border-border md:w-[360px] md:flex-none">
-      <div className="flex items-center justify-between px-5 pb-3 pt-4">
+      <div className="flex flex-col gap-2.5 px-5 pb-3 pt-4">
         <label className="flex cursor-pointer items-center gap-1.5 text-[12.5px] text-ink-muted">
           <input
             type="checkbox"
@@ -49,15 +64,28 @@ export function InvoiceList({
           />
           Vybrat vše
         </label>
-        <button
-          type="button"
-          disabled={selectedForExport.size === 0 || isExporting}
-          onClick={onExport}
-          className="flex items-center gap-1.5 rounded-[10px] border border-border bg-surface px-3 py-2 text-[13px] font-semibold text-ink transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface"
-        >
-          <ExportIcon className="h-4 w-4" />
-          {isExporting ? "Exportuji…" : `Exportovat (${selectedForExport.size})`}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={selectedForExport.size < 2 || mergeInvoices.isPending}
+            onClick={handleMerge}
+            title="Sloučí vybrané faktury do jedné nové - původní zůstanou zachované"
+            className="flex items-center gap-1.5 rounded-[10px] border border-border bg-surface px-3 py-2 text-[13px] font-semibold text-ink transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface"
+          >
+            <MergeIcon className="h-4 w-4" />
+            {mergeInvoices.isPending ? "Slučuji…" : `Sloučit (${selectedForExport.size})`}
+          </button>
+          <button
+            type="button"
+            disabled={selectedForExport.size === 0 || isExporting}
+            onClick={onExport}
+            className="flex items-center gap-1.5 rounded-[10px] border border-border bg-surface px-3 py-2 text-[13px] font-semibold text-ink transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface"
+          >
+            <ExportIcon className="h-4 w-4" />
+            {isExporting ? "Exportuji…" : `Exportovat (${selectedForExport.size})`}
+          </button>
+        </div>
+        {mergeError && <p className="text-[12px] text-bad">{mergeError}</p>}
       </div>
 
       <div className="flex flex-col gap-1.5 overflow-y-auto px-3 pb-4">

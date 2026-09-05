@@ -5,7 +5,7 @@ export function ConfidenceMeter({ score }: { score: number }) {
   const textClass = { bad: "text-bad", warn: "text-warn", good: "text-good" }[tone];
 
   return (
-    <div className="flex items-center justify-end gap-2">
+    <div className="flex items-center justify-center gap-2">
       <span className="h-[5px] w-[46px] flex-none overflow-hidden rounded-full border border-border bg-surface-2">
         <span className={`block h-full rounded-full ${barClass}`} style={{ width: `${pct}%` }} />
       </span>

@@ -34,6 +34,10 @@ class ExportRequest(BaseModel):
     invoice_ids: List[int] = Field(min_length=1)
 
 
+class MergeRequest(BaseModel):
+    invoice_ids: List[int] = Field(min_length=2)
+
+
 def _line_item_payload(item: LineItem) -> dict:
     return {
         "id": item.id,
@@ -162,6 +166,67 @@ def update_line_item(item_id: int, payload: LineItemUpdate, db: Session = Depend
         db.commit()
 
     return api_success(_line_item_payload(item), "Line item updated successfully.")
+
+
+@router.post("/invoices/merge")
+def merge_invoices(payload: MergeRequest, db: Session = Depends(get_db), current_customer: Customer = Depends(get_current_customer)):
+    """Sloučí položky z několika faktur do jedné NOVÉ faktury - zdrojové faktury zůstávají
+    beze změny (nemažou se ani se z nich neodebírají položky), tohle je čistě přídavná operace.
+    """
+    requested_ids = set(payload.invoice_ids)
+    invoices = (
+        db.query(Invoice)
+        .filter(Invoice.id.in_(requested_ids), Invoice.customer_id == current_customer.id)
+        .all()
+    )
+    if len(invoices) != len(requested_ids):
+        return JSONResponse(status_code=404, content=api_error("Some invoices were not found.", "invoices_not_found"))
+
+    currencies = {invoice.currency for invoice in invoices}
+    if len(currencies) > 1:
+        return JSONResponse(
+            status_code=400,
+            content=api_error("Cannot merge invoices with different currencies.", "currency_mismatch"),
+        )
+
+    supplier_names = {invoice.supplier_name for invoice in invoices if invoice.supplier_name}
+    invoice_dates = {invoice.invoice_date for invoice in invoices if invoice.invoice_date}
+    ocr_texts = [invoice.raw_ocr_text for invoice in invoices if invoice.raw_ocr_text]
+    merged_filename = "Sloučeno: " + ", ".join(invoice.original_filename for invoice in invoices)
+
+    merged = Invoice(
+        customer_id=current_customer.id,
+        original_filename=merged_filename[:255],
+        file_path=f"merged:{','.join(str(invoice.id) for invoice in invoices)}",
+        status=InvoiceStatus.NEEDS_REVIEW.value,
+        supplier_name=next(iter(supplier_names)) if len(supplier_names) == 1 else None,
+        invoice_date=next(iter(invoice_dates)) if len(invoice_dates) == 1 else None,
+        currency=next(iter(currencies)),
+        raw_ocr_text="\n\n---\n\n".join(ocr_texts) if ocr_texts else None,
+    )
+    db.add(merged)
+    db.flush()
+
+    total_amount = 0.0
+    for invoice in invoices:
+        for item in invoice.line_items:
+            db.add(LineItem(
+                invoice_id=merged.id,
+                description=item.description,
+                category=item.category,
+                amount=item.amount,
+                confidence_score=item.confidence_score,
+                is_corrected=item.is_corrected,
+            ))
+            total_amount += item.amount
+
+    merged.total_amount = total_amount
+    db.commit()
+    db.refresh(merged)
+
+    result = _invoice_summary_payload(merged)
+    result["raw_ocr_text"] = merged.raw_ocr_text or ""
+    return api_success(result, "Invoices merged successfully.")
 
 
 @router.post("/invoices/export")

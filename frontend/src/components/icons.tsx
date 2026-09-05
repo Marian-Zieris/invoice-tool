@@ -81,6 +81,16 @@ export function LogoutIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function MergeIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M7 3v8a4 4 0 0 0 4 4h6" />
+      <path d="M7 21v-8" />
+      <path d="M14 12l3 3-3 3" />
+    </svg>
+  );
+}
+
 export function TrashIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>

@@ -30,6 +30,11 @@ export function InvoicesPage() {
     setSelectedId((current) => (current === id ? null : current));
   }
 
+  function handleMerged(newInvoiceId: number) {
+    setSelectedForExport(new Set());
+    setSelectedId(newInvoiceId);
+  }
+
   function toggleExport(id: number) {
     setSelectedForExport((current) => {
       const next = new Set(current);
@@ -69,6 +74,7 @@ export function InvoicesPage() {
             selectedId={selectedId}
             onSelect={setSelectedId}
             onDeleted={handleDeleted}
+            onMerged={handleMerged}
             selectedForExport={selectedForExport}
             onToggleExport={toggleExport}
             onToggleAll={toggleAll}

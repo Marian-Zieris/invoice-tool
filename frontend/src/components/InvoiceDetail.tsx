@@ -130,8 +130,8 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
                     <th className="px-[18px] pb-2.5 pt-3.5 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                       Kategorie
                     </th>
-                    <th className="px-[18px] pb-2.5 pt-3.5 text-right text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                      Jistota
+                    <th className="px-[18px] pb-2.5 pt-3.5 text-center text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                      Přesnost
                     </th>
                     <th className="px-[18px] pb-2.5 pt-3.5 text-right text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                       Částka
