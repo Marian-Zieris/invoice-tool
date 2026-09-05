@@ -1,13 +1,15 @@
 import type { InvoiceSummary } from "../api/types";
 import { formatAmount, formatDate, formatDateTime } from "../lib/format";
+import { useDeleteInvoice } from "../hooks/useDeleteInvoice";
 import { StatusPill } from "./StatusPill";
-import { ExportIcon } from "./icons";
+import { ExportIcon, TrashIcon } from "./icons";
 
 interface InvoiceListProps {
   invoices: InvoiceSummary[];
   isLoading: boolean;
   selectedId: number | null;
   onSelect: (id: number) => void;
+  onDeleted: (id: number) => void;
   selectedForExport: Set<number>;
   onToggleExport: (id: number) => void;
   onToggleAll: () => void;
@@ -24,6 +26,7 @@ export function InvoiceList({
   isLoading,
   selectedId,
   onSelect,
+  onDeleted,
   selectedForExport,
   onToggleExport,
   onToggleAll,
@@ -31,6 +34,7 @@ export function InvoiceList({
   isExporting,
 }: InvoiceListProps) {
   const allSelected = invoices.length > 0 && selectedForExport.size === invoices.length;
+  const deleteInvoice = useDeleteInvoice();
 
   return (
     <section className="flex min-h-0 flex-col border-r border-border md:w-[360px] md:flex-none">
@@ -76,7 +80,7 @@ export function InvoiceList({
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") onSelect(invoice.id);
               }}
-              className={`glass-panel flex cursor-pointer items-start gap-2.5 rounded-[16px] p-3 transition-colors ${
+              className={`glass-panel group flex cursor-pointer items-start gap-2.5 rounded-[16px] p-3 transition-colors ${
                 isActive ? "border-accent bg-accent-soft" : "hover:border-border-strong"
               }`}
             >
@@ -101,6 +105,20 @@ export function InvoiceList({
                   </span>
                 </div>
               </div>
+              <button
+                type="button"
+                title="Smazat fakturu"
+                disabled={deleteInvoice.isPending}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (window.confirm(`Opravdu smazat fakturu "${invoice.original_filename}"? Tuto akci nelze vrátit zpět.`)) {
+                    deleteInvoice.mutate(invoice.id, { onSuccess: () => onDeleted(invoice.id) });
+                  }
+                }}
+                className="flex flex-none items-center justify-center self-center rounded-[8px] p-1.5 text-ink-muted opacity-0 transition-opacity hover:bg-bad-soft hover:text-bad group-hover:opacity-100 disabled:opacity-50"
+              >
+                <TrashIcon className="h-3.5 w-3.5" />
+              </button>
             </div>
           );
         })}

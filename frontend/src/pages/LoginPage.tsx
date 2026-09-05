@@ -44,7 +44,7 @@ export function LoginPage() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1.5 text-[13px] font-medium text-ink-muted">
-            E-mail
+            User ID
             <input
               type="email"
               required

@@ -21,15 +21,13 @@ export function InvoicesPage() {
     }
   }, [invoices, selectedId]);
 
-  function handleDeleted() {
-    if (selectedId !== null) {
-      setSelectedForExport((current) => {
-        const next = new Set(current);
-        next.delete(selectedId);
-        return next;
-      });
-    }
-    setSelectedId(null);
+  function handleDeleted(id: number) {
+    setSelectedForExport((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+    setSelectedId((current) => (current === id ? null : current));
   }
 
   function toggleExport(id: number) {
@@ -70,13 +68,14 @@ export function InvoicesPage() {
             isLoading={invoicesQuery.isLoading}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            onDeleted={handleDeleted}
             selectedForExport={selectedForExport}
             onToggleExport={toggleExport}
             onToggleAll={toggleAll}
             onExport={handleExport}
             isExporting={isExporting}
           />
-          <InvoiceDetail invoiceId={selectedId} onDeleted={handleDeleted} />
+          <InvoiceDetail invoiceId={selectedId} />
         </div>
         {exportError && (
           <p className="border-t border-border px-8 py-2 text-[12.5px] text-bad">{exportError}</p>

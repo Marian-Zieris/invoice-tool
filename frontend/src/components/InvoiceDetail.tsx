@@ -3,21 +3,19 @@ import { useInvoiceDetail } from "../hooks/useInvoiceDetail";
 import { useInvoiceItems } from "../hooks/useInvoiceItems";
 import { useUpdateItem } from "../hooks/useUpdateItem";
 import { useUpdateInvoice } from "../hooks/useUpdateInvoice";
-import { useDeleteInvoice } from "../hooks/useDeleteInvoice";
 import { formatAmount, formatDate, formatDateTime } from "../lib/format";
 import { StatusPill } from "./StatusPill";
 import { ConfidenceMeter } from "./ConfidenceMeter";
 import { EditableCell } from "./EditableCell";
-import { EditIcon, SpinnerIcon, TrashIcon, WarningIcon } from "./icons";
+import { EditIcon, SpinnerIcon, WarningIcon } from "./icons";
 
 const LOW_CONFIDENCE_THRESHOLD = 0.6;
 
-export function InvoiceDetail({ invoiceId, onDeleted }: { invoiceId: number | null; onDeleted: () => void }) {
+export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
   const invoiceQuery = useInvoiceDetail(invoiceId);
   const itemsQuery = useInvoiceItems(invoiceId);
   const updateItem = useUpdateItem();
   const updateInvoice = useUpdateInvoice();
-  const deleteInvoice = useDeleteInvoice();
   const [showRawText, setShowRawText] = useState(false);
 
   if (invoiceId === null) {
@@ -57,38 +55,23 @@ export function InvoiceDetail({ invoiceId, onDeleted }: { invoiceId: number | nu
             <span>{invoice.invoice_date ? formatDate(invoice.invoice_date) : formatDateTime(invoice.created_at)}</span>
           </div>
         </div>
-        <div className="flex items-start gap-3">
-          {invoice.total_amount !== null && (
-            <div className="text-right">
-              <div className="font-mono text-[26px] font-semibold tabular-nums text-ink">
+        {invoice.total_amount !== null && (
+          <div className="text-right">
+            <div className="flex items-baseline justify-end gap-1.5">
+              <span className="font-mono text-[26px] font-semibold tabular-nums text-ink">
                 {new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 }).format(invoice.total_amount)}
-              </div>
-              <div className="flex items-center justify-end gap-1 text-[13px] text-ink-muted">
-                <span className="w-14">
-                  <EditableCell
-                    value={invoice.currency}
-                    align="right"
-                    onSave={(value) => updateInvoice.mutate({ invoiceId: invoice.id, changes: { currency: value.toUpperCase() } })}
-                  />
-                </span>
-                celkem
-              </div>
+              </span>
+              <span className="w-11 text-[15px] font-medium text-ink-muted">
+                <EditableCell
+                  value={invoice.currency}
+                  align="right"
+                  onSave={(value) => updateInvoice.mutate({ invoiceId: invoice.id, changes: { currency: value.toUpperCase() } })}
+                />
+              </span>
             </div>
-          )}
-          <button
-            type="button"
-            title="Smazat fakturu"
-            disabled={deleteInvoice.isPending}
-            onClick={() => {
-              if (window.confirm(`Opravdu smazat fakturu "${invoice.original_filename}"? Tuto akci nelze vrátit zpět.`)) {
-                deleteInvoice.mutate(invoice.id, { onSuccess: onDeleted });
-              }
-            }}
-            className="flex flex-none items-center justify-center rounded-[10px] border border-border bg-surface p-2.5 text-ink-muted transition-colors hover:border-bad hover:text-bad disabled:opacity-50"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
-        </div>
+            <div className="text-[12px] text-ink-muted">celkem</div>
+          </div>
+        )}
       </div>
 
       {isPending && (
@@ -148,10 +131,10 @@ export function InvoiceDetail({ invoiceId, onDeleted }: { invoiceId: number | nu
                       Kategorie
                     </th>
                     <th className="px-[18px] pb-2.5 pt-3.5 text-right text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                      Částka
+                      Jistota
                     </th>
                     <th className="px-[18px] pb-2.5 pt-3.5 text-right text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                      Jistota
+                      Částka
                     </th>
                   </tr>
                 </thead>
@@ -182,6 +165,9 @@ export function InvoiceDetail({ invoiceId, onDeleted }: { invoiceId: number | nu
                             }
                           />
                         </td>
+                        <td className={`px-[18px] py-3 ${isLow ? "border-transparent" : "border-t border-border"}`}>
+                          <ConfidenceMeter score={item.confidence_score} />
+                        </td>
                         <td className={`px-[18px] py-3 text-right ${isLow ? "border-transparent" : "border-t border-border"}`}>
                           <EditableCell
                             value={String(item.amount)}
@@ -196,9 +182,6 @@ export function InvoiceDetail({ invoiceId, onDeleted }: { invoiceId: number | nu
                             }}
                           />
                         </td>
-                        <td className={`px-[18px] py-3 ${isLow ? "border-transparent" : "border-t border-border"}`}>
-                          <ConfidenceMeter score={item.confidence_score} />
-                        </td>
                       </tr>
                     );
                   })}
@@ -206,13 +189,12 @@ export function InvoiceDetail({ invoiceId, onDeleted }: { invoiceId: number | nu
                 {invoice.total_amount !== null && (
                   <tfoot>
                     <tr>
-                      <td colSpan={2} className="border-t border-border px-[18px] py-3.5 font-bold text-ink">
+                      <td colSpan={3} className="border-t border-border px-[18px] py-3.5 font-bold text-ink">
                         Celkem
                       </td>
                       <td className="border-t border-border px-[18px] py-3.5 text-right font-mono font-bold tabular-nums text-ink">
                         {formatAmount(invoice.total_amount, invoice.currency)}
                       </td>
-                      <td className="border-t border-border" />
                     </tr>
                   </tfoot>
                 )}
