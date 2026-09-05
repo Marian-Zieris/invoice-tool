@@ -61,10 +61,11 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
               <span className="font-mono text-[26px] font-semibold tabular-nums text-ink">
                 {new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 }).format(invoice.total_amount)}
               </span>
-              <span className="w-11 text-[15px] font-medium text-ink-muted">
+              <span className="w-10 text-[15px] font-medium text-ink-muted">
                 <EditableCell
                   value={invoice.currency}
                   align="right"
+                  padding="px-0.5 py-0"
                   onSave={(value) => updateInvoice.mutate({ invoiceId: invoice.id, changes: { currency: value.toUpperCase() } })}
                 />
               </span>

@@ -6,9 +6,17 @@ interface EditableCellProps {
   type?: "text" | "number";
   align?: "left" | "right";
   monospace?: boolean;
+  padding?: string;
 }
 
-export function EditableCell({ value, onSave, type = "text", align = "left", monospace = false }: EditableCellProps) {
+export function EditableCell({
+  value,
+  onSave,
+  type = "text",
+  align = "left",
+  monospace = false,
+  padding = "px-2 py-1",
+}: EditableCellProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
 
@@ -41,7 +49,7 @@ export function EditableCell({ value, onSave, type = "text", align = "left", mon
             setEditing(false);
           }
         }}
-        className={`w-full rounded-md border border-accent bg-surface px-2 py-1 text-[13.5px] text-ink outline-none ${alignClass} ${fontClass}`}
+        className={`w-full rounded-md border border-accent bg-surface ${padding} text-[13.5px] text-ink outline-none ${alignClass} ${fontClass}`}
       />
     );
   }
@@ -53,7 +61,7 @@ export function EditableCell({ value, onSave, type = "text", align = "left", mon
         setDraft(value);
         setEditing(true);
       }}
-      className={`w-full rounded-md px-2 py-1 transition-colors hover:bg-surface-2 ${alignClass} ${fontClass}`}
+      className={`w-full rounded-md ${padding} transition-colors hover:bg-surface-2 ${alignClass} ${fontClass}`}
     >
       {value}
     </button>
