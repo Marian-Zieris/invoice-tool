@@ -66,6 +66,7 @@ def _invoice_summary_payload(invoice: Invoice) -> dict:
         "total_amount": invoice.total_amount,
         "currency": invoice.currency,
         "created_at": invoice.created_at.isoformat(),
+        "extraction_warning": invoice.extraction_warning,
     }
 
 
@@ -203,6 +204,7 @@ def merge_invoices(payload: MergeRequest, db: Session = Depends(get_db), current
     supplier_names = sorted({invoice.supplier_name for invoice in invoices if invoice.supplier_name})
     invoice_dates = {invoice.invoice_date for invoice in invoices if invoice.invoice_date}
     ocr_texts = [invoice.raw_ocr_text for invoice in invoices if invoice.raw_ocr_text]
+    warnings = [invoice.extraction_warning for invoice in invoices if invoice.extraction_warning]
     merged_filename = "Sloučeno: " + ", ".join(invoice.original_filename for invoice in invoices)
 
     # Když se sloučí faktury od různých dodavatelů, hlavičkové pole nemůže nést jednu
@@ -225,6 +227,7 @@ def merge_invoices(payload: MergeRequest, db: Session = Depends(get_db), current
         invoice_date=next(iter(invoice_dates)) if len(invoice_dates) == 1 else None,
         currency=next(iter(currencies)),
         raw_ocr_text="\n\n---\n\n".join(ocr_texts) if ocr_texts else None,
+        extraction_warning="\n".join(warnings) if warnings else None,
     )
     db.add(merged)
     db.flush()

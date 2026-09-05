@@ -15,6 +15,7 @@ export function useUpdateItem() {
     mutationFn: ({ itemId, changes }: UpdateItemVariables) => api.patch<LineItem>(`/items/${itemId}`, changes),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["invoice-items", variables.invoiceId] });
+      queryClient.invalidateQueries({ queryKey: ["invoice-detail", variables.invoiceId] });
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
     },
   });

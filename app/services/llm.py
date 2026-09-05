@@ -40,6 +40,7 @@ class InvoiceExtraction(BaseModel):
     currency: Optional[str] = "CZK"
     total_amount: Optional[float] = None
     line_items: List[LineItemExtraction] = Field(default_factory=list)
+    extraction_warning: Optional[str] = None
 
 
 def _resolve_categories(category_rules: Any) -> List[str]:
@@ -68,6 +69,7 @@ def _build_system_prompt(categories: List[str]) -> str:
                 "vat_rate": "cislo nebo null - sazba DPH v procentech (napr. 21, 12, 0), jen pokud je na dokladu",
             }
         ],
+        "extraction_warning": "string nebo null - viz instrukce nize",
     }
 
     return (
@@ -89,7 +91,13 @@ def _build_system_prompt(categories: List[str]) -> str:
         "DPH (amount_without_vat, vat_rate) vyplnuj VYHRADNE kdyz je doklad sam explicitne uvadi (napr. sloupce "
         "'zaklad dane'/'zaklad'/'bez DPH' a 'sazba'/'DPH%', nebo souhrnna tabulka 'Vycisleni DPH'). Spousta "
         "zivnostniku a mikrofirem NENI platci DPH a jejich doklady zadne DPH neobsahuji - v takovem pripade "
-        "NIKDY DPH nedopocitavej ani neodhaduj, nech obe pole null."
+        "NIKDY DPH nedopocitavej ani neodhaduj, nech obe pole null.\n"
+        "extraction_warning: pokud v OCR textu narazis na fragment, ktery vypada jako dalsi polozka/castka "
+        "(napr. cislo bez jasneho popisu, useknuty radek, necitelny shluk znaku uprostred seznamu polozek), ale "
+        "je natolik nejasny, ze ho nejde spolehlive prevest na polozku s popisem a castkou, NEVKLADEJ ho do "
+        "line_items (jak uz plati vyse) - misto toho strucne (jednou vetou) napis do extraction_warning, ze "
+        "doklad pravdepodobne obsahuje dalsi polozky, ktere se nepodarilo precist. Pokud text pusobi kompletne "
+        "a citelne, nech extraction_warning null - nepouzivej ho jako obecnou omluvu za nizkou jistotu."
     )
 
 

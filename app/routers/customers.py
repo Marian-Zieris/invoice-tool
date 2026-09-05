@@ -90,6 +90,28 @@ def update_customer_categories(customer_id: int, payload: CustomerCategoriesUpda
     }, "Customer categories updated successfully.")
 
 
+@router.delete("/customers/{customer_id}")
+def delete_customer(customer_id: int, db: Session = Depends(get_db)):
+    """Smaže účet zákazníka i všechny jeho faktury/položky (cascade, viz models.py) a jejich
+    nahrané soubory z disku - nevratná operace, ale admin ji potřebuje na úklid testovacích
+    nebo omylem založených účtů."""
+    customer = db.get(Customer, customer_id)
+    if customer is None:
+        return JSONResponse(status_code=404, content=api_error("Customer not found.", "customer_not_found"))
+
+    file_paths = [invoice.file_path for invoice in customer.invoices if invoice.file_path]
+    db.delete(customer)
+    db.commit()
+
+    for file_path in file_paths:
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+
+    return api_success(None, "Customer deleted successfully.")
+
+
 @router.post("/customers/{customer_id}/template")
 async def upload_customer_template(
     customer_id: int,

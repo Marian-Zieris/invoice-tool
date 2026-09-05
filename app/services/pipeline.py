@@ -68,6 +68,7 @@ def process_invoice(invoice_id: int) -> None:
         invoice.invoice_date = _parse_date(extracted.invoice_date)
         invoice.total_amount = extracted.total_amount
         invoice.currency = extracted.currency or "CZK"
+        invoice.extraction_warning = extracted.extraction_warning
 
         for item in extracted.line_items:
             db.add(LineItem(

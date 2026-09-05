@@ -1,10 +1,10 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useAdminAuth } from "./AdminAuthContext";
-import { useAdminCustomers, useCreateCustomer, useUploadTemplate } from "./hooks";
-import type { ExcelTemplateConfig } from "./adminClient";
+import { useAdminCustomers, useCreateCustomer, useDeleteCustomer, useUploadTemplate } from "./hooks";
+import type { AdminCustomer, ExcelTemplateConfig } from "./adminClient";
 import { ApiError } from "../api/client";
 import { ThemeToggle } from "../components/ThemeToggle";
-import { SpinnerIcon, UploadIcon, LogoutIcon } from "../components/icons";
+import { SpinnerIcon, TrashIcon, UploadIcon, LogoutIcon } from "../components/icons";
 
 function parseCategories(raw: string): string[] {
   return raw
@@ -231,6 +231,37 @@ function TemplateCell({ customerId, template }: { customerId: number; template: 
   );
 }
 
+function DeleteCustomerButton({ customer }: { customer: AdminCustomer }) {
+  const deleteCustomer = useDeleteCustomer();
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <div className="flex items-center justify-end gap-2">
+      {error && <span className="text-[11px] text-bad">{error}</span>}
+      <button
+        type="button"
+        title="Smazat účet"
+        disabled={deleteCustomer.isPending}
+        onClick={() => {
+          setError(null);
+          if (
+            window.confirm(
+              `Opravdu smazat účet "${customer.email}" i se všemi jeho fakturami? Tuto akci nelze vrátit zpět.`,
+            )
+          ) {
+            deleteCustomer.mutate(customer.id, {
+              onError: (err) => setError(err instanceof ApiError ? err.message : "Smazání selhalo."),
+            });
+          }
+        }}
+        className="flex flex-none items-center justify-center rounded-[8px] border border-border bg-surface p-2 text-ink-muted transition-colors hover:border-bad hover:text-bad disabled:opacity-50"
+      >
+        <TrashIcon className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
 export function AdminDashboard() {
   const { lock } = useAdminAuth();
   const customersQuery = useAdminCustomers(true);
@@ -286,6 +317,9 @@ export function AdminDashboard() {
                   <th className="px-3 pb-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                     Excel šablona
                   </th>
+                  <th className="px-3 pb-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                    &nbsp;
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -297,6 +331,9 @@ export function AdminDashboard() {
                     </td>
                     <td className="border-t border-border px-3 py-3">
                       <TemplateCell customerId={customer.id} template={customer.excel_template_config} />
+                    </td>
+                    <td className="border-t border-border px-3 py-3">
+                      <DeleteCustomerButton customer={customer} />
                     </td>
                   </tr>
                 ))}

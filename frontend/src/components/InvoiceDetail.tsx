@@ -104,6 +104,15 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
         )}
       </div>
 
+      {invoice.extraction_warning && (
+        <div className="glass-panel mb-4 flex items-start gap-2.5 rounded-[16px] p-3.5 text-[12.5px] leading-relaxed text-ink-muted">
+          <WarningIcon className="mt-0.5 h-4 w-4 flex-none text-warn" />
+          <div>
+            <b className="text-ink">Doklad může obsahovat další položky.</b> {invoice.extraction_warning}
+          </div>
+        </div>
+      )}
+
       {isPending && (
         <div className="glass-panel flex items-center gap-3 rounded-[22px] p-6 text-[13.5px] text-ink-muted">
           <SpinnerIcon className="h-5 w-5 flex-none animate-spin" />

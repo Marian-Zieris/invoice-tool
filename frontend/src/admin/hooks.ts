@@ -17,6 +17,14 @@ export function useCreateCustomer() {
   });
 }
 
+export function useDeleteCustomer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (customerId: number) => adminApi.deleteCustomer(customerId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-customers"] }),
+  });
+}
+
 export function useUploadTemplate() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -86,6 +86,7 @@ export interface UploadTemplateOptions {
 export const adminApi = {
   listCustomers: () => adminRequest<AdminCustomer[]>("/customers", "GET"),
   createCustomer: (payload: CreateCustomerPayload) => adminRequest<AdminCustomer>("/customers", "POST", payload),
+  deleteCustomer: (customerId: number) => adminRequest<null>(`/customers/${customerId}`, "DELETE"),
   uploadTemplate: (customerId: number, options: UploadTemplateOptions) => {
     const formData = new FormData();
     if (options.file) formData.append("file", options.file);

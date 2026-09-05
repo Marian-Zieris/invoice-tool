@@ -31,7 +31,7 @@ class Customer(Base):
     category_rules: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-    invoices: Mapped[list["Invoice"]] = relationship(back_populates="customer")
+    invoices: Mapped[list["Invoice"]] = relationship(back_populates="customer", cascade="all, delete-orphan")
 
 
 class Invoice(Base):
@@ -47,6 +47,10 @@ class Invoice(Base):
     invoice_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     total_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     currency: Mapped[str] = mapped_column(String, default="CZK")
+    # Krátká poznámka od LLM - vyplní se jen když model narazil na fragment textu, který
+    # vypadal jako další položka, ale nešel spolehlivě přiřadit (viz llm.py) - signál pro
+    # zákazníka, že faktura může mít víc položek, než kolik se jich reálně vytěžilo.
+    extraction_warning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     customer: Mapped["Customer"] = relationship(back_populates="invoices")

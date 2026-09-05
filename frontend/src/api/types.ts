@@ -16,6 +16,7 @@ export interface InvoiceSummary {
   total_amount: number | null;
   currency: string;
   created_at: string;
+  extraction_warning: string | null;
 }
 
 export interface InvoiceDetail extends InvoiceSummary {
