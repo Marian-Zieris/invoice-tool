@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useAdminAuth } from "./AdminAuthContext";
 import { useAdminCustomers, useCreateCustomer, useUploadTemplate } from "./hooks";
+import type { ExcelTemplateConfig } from "./adminClient";
 import { ApiError } from "../api/client";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { SpinnerIcon, UploadIcon, LogoutIcon } from "../components/icons";
@@ -88,42 +89,132 @@ function NewCustomerForm() {
   );
 }
 
-function TemplateCell({ customerId, templateName }: { customerId: number; templateName?: string }) {
+const KNOWN_COLUMN_KEYS = [
+  "invoice_id",
+  "original_filename",
+  "supplier_name",
+  "invoice_date",
+  "description",
+  "category",
+  "amount",
+  "currency",
+  "confidence_score",
+  "is_corrected",
+];
+
+function TemplateCell({ customerId, template }: { customerId: number; template: ExcelTemplateConfig }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadTemplate = useUploadTemplate();
+  const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sheetName, setSheetName] = useState(template.sheet_name ?? "");
+  const [startRow, setStartRow] = useState(String(template.start_row ?? 2));
+  const [columns, setColumns] = useState((template.columns ?? []).join(","));
 
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".xlsx,.xls"
-        className="hidden"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (file) {
-            setError(null);
-            uploadTemplate.mutate(
-              { customerId, file },
-              { onError: (err) => setError(err instanceof ApiError ? err.message : "Nahrání selhalo.") },
-            );
-          }
-          event.target.value = "";
-        }}
-      />
-      <span className="truncate text-[12.5px] text-ink-muted">{templateName ?? "žádná šablona"}</span>
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    const file = inputRef.current?.files?.[0];
+    if (!file && !template.template_path) {
+      setError("Vyber soubor šablony.");
+      return;
+    }
+    setError(null);
+    uploadTemplate.mutate(
+      {
+        customerId,
+        options: {
+          file: file ?? undefined,
+          sheetName: sheetName || undefined,
+          startRow: startRow ? Number(startRow) : undefined,
+          columns: columns || undefined,
+        },
+      },
+      {
+        onSuccess: () => setExpanded(false),
+        onError: (err) => setError(err instanceof ApiError ? err.message : "Uložení selhalo."),
+      },
+    );
+  }
+
+  if (!expanded) {
+    return (
       <button
         type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={uploadTemplate.isPending}
-        className="flex flex-none items-center gap-1 rounded-[8px] border border-border bg-surface px-2.5 py-1 text-[12px] font-semibold text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
+        onClick={() => setExpanded(true)}
+        className="flex items-center gap-2 rounded-[8px] px-1 py-1 text-left transition-colors hover:bg-surface-2"
       >
-        <UploadIcon className="h-3 w-3" />
-        {uploadTemplate.isPending ? "…" : templateName ? "Nahradit" : "Nahrát"}
+        <UploadIcon className="h-3.5 w-3.5 flex-none text-ink-muted" />
+        <span className="truncate text-[12.5px] text-ink">
+          {template.template_name ?? <span className="text-ink-muted">žádná šablona — klik pro nastavení</span>}
+        </span>
+        {template.columns && (
+          <span className="flex-none text-[11px] text-ink-muted">({template.columns.length} sloupců)</span>
+        )}
       </button>
-      {error && <span className="text-[11.5px] text-bad">{error}</span>}
-    </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex min-w-[260px] flex-col gap-2 rounded-[12px] border border-border bg-surface-2 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[12px] font-semibold text-ink">
+          {template.template_name ? "Upravit šablonu" : "Nahrát šablonu"}
+        </span>
+        <button type="button" onClick={() => setExpanded(false)} className="text-[11px] text-ink-muted hover:text-ink">
+          Zavřít
+        </button>
+      </div>
+
+      <label className="flex flex-col gap-1 text-[11px] font-medium text-ink-muted">
+        Soubor {template.template_name && "(ponech prázdné pro zachování stávajícího)"}
+        <input ref={inputRef} type="file" accept=".xlsx,.xls" className="text-[11.5px]" />
+      </label>
+
+      <div className="grid grid-cols-2 gap-2">
+        <label className="flex flex-col gap-1 text-[11px] font-medium text-ink-muted">
+          List
+          <input
+            type="text"
+            value={sheetName}
+            onChange={(event) => setSheetName(event.target.value)}
+            placeholder="první list"
+            className="rounded-[7px] border border-border bg-surface px-2 py-1.5 text-[12px] text-ink outline-none focus:border-accent"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-[11px] font-medium text-ink-muted">
+          Od řádku
+          <input
+            type="number"
+            min={1}
+            value={startRow}
+            onChange={(event) => setStartRow(event.target.value)}
+            className="rounded-[7px] border border-border bg-surface px-2 py-1.5 text-[12px] text-ink outline-none focus:border-accent"
+          />
+        </label>
+      </div>
+
+      <label className="flex flex-col gap-1 text-[11px] font-medium text-ink-muted">
+        Sloupce v pořadí, oddělené čárkou
+        <input
+          type="text"
+          value={columns}
+          onChange={(event) => setColumns(event.target.value)}
+          placeholder="supplier_name,invoice_date,description,category,amount,currency"
+          className="rounded-[7px] border border-border bg-surface px-2 py-1.5 font-mono text-[11.5px] text-ink outline-none focus:border-accent"
+        />
+        <span className="text-[10.5px] leading-snug text-ink-muted">Platné klíče: {KNOWN_COLUMN_KEYS.join(", ")}</span>
+      </label>
+
+      {error && <p className="text-[11.5px] text-bad">{error}</p>}
+
+      <button
+        type="submit"
+        disabled={uploadTemplate.isPending}
+        className="self-start rounded-[8px] bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-ink disabled:opacity-60"
+      >
+        {uploadTemplate.isPending ? "Ukládám…" : "Uložit"}
+      </button>
+    </form>
   );
 }
 
@@ -198,7 +289,7 @@ export function AdminDashboard() {
                       </div>
                     </td>
                     <td className="border-t border-border px-3 py-3">
-                      <TemplateCell customerId={customer.id} templateName={customer.excel_template_config.template_name} />
+                      <TemplateCell customerId={customer.id} template={customer.excel_template_config} />
                     </td>
                   </tr>
                 ))}

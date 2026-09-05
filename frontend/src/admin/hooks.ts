@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { adminApi } from "./adminClient";
+import { adminApi, type UploadTemplateOptions } from "./adminClient";
 
 export function useAdminCustomers(enabled: boolean) {
   return useQuery({
@@ -20,7 +20,8 @@ export function useCreateCustomer() {
 export function useUploadTemplate() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ customerId, file }: { customerId: number; file: File }) => adminApi.uploadTemplate(customerId, file),
+    mutationFn: ({ customerId, options }: { customerId: number; options: UploadTemplateOptions }) =>
+      adminApi.uploadTemplate(customerId, options),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-customers"] }),
   });
 }

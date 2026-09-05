@@ -57,6 +57,10 @@ export interface CategoryRules {
 export interface ExcelTemplateConfig {
   template_path?: string;
   template_name?: string;
+  sheet_name?: string;
+  start_row?: number;
+  columns?: string[];
+  headers?: string[];
 }
 
 export interface AdminCustomer {
@@ -72,13 +76,23 @@ export interface CreateCustomerPayload {
   category_rules?: CategoryRules;
 }
 
+export interface UploadTemplateOptions {
+  file?: File;
+  sheetName?: string;
+  startRow?: number;
+  columns?: string;
+}
+
 export const adminApi = {
   listCustomers: () => adminRequest<AdminCustomer[]>("/customers", "GET"),
   createCustomer: (payload: CreateCustomerPayload) => adminRequest<AdminCustomer>("/customers", "POST", payload),
-  uploadTemplate: (customerId: number, file: File) => {
+  uploadTemplate: (customerId: number, options: UploadTemplateOptions) => {
     const formData = new FormData();
-    formData.append("file", file);
-    return adminRequest<{ customer_id: number; template_path: string; template_name: string }>(
+    if (options.file) formData.append("file", options.file);
+    if (options.sheetName) formData.append("sheet_name", options.sheetName);
+    if (options.startRow !== undefined) formData.append("start_row", String(options.startRow));
+    if (options.columns) formData.append("columns", options.columns);
+    return adminRequest<{ customer_id: number; excel_template_config: ExcelTemplateConfig }>(
       `/customers/${customerId}/template`,
       "POST",
       formData,
