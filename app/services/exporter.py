@@ -44,11 +44,12 @@ _LEFT = Alignment(horizontal="left", vertical="center")
 
 
 def _row_for_line_item(invoice: Invoice, item) -> Dict[str, Any]:
+    item_date = item.invoice_date or invoice.invoice_date
     return {
         "invoice_id": invoice.id,
         "original_filename": invoice.original_filename,
-        "supplier_name": invoice.supplier_name or "",
-        "invoice_date": invoice.invoice_date.isoformat() if invoice.invoice_date else "",
+        "supplier_name": item.supplier_name or invoice.supplier_name or "",
+        "invoice_date": item_date.isoformat() if item_date else "",
         "description": item.description,
         "category": item.category,
         "amount": item.amount,
@@ -107,8 +108,10 @@ def _build_default_workbook(invoices: List[Invoice]) -> Workbook:
 
         subtotal = 0.0
         for item in invoice.line_items:
-            sheet.cell(row=row, column=1, value=date_str if invoice.invoice_date else "")
-            sheet.cell(row=row, column=2, value=supplier)
+            item_date = item.invoice_date or invoice.invoice_date
+            item_supplier = item.supplier_name or supplier
+            sheet.cell(row=row, column=1, value=item_date.strftime("%d.%m.%Y") if item_date else "")
+            sheet.cell(row=row, column=2, value=item_supplier)
             sheet.cell(row=row, column=3, value=item.description)
             sheet.cell(row=row, column=4, value=item.category)
             amount_cell = sheet.cell(row=row, column=5, value=item.amount)

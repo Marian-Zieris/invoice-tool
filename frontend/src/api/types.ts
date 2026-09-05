@@ -30,6 +30,8 @@ export interface LineItem {
   amount: number;
   confidence_score: number;
   is_corrected: boolean;
+  supplier_name: string | null;
+  invoice_date: string | null;
 }
 
 export interface Customer {

@@ -76,6 +76,8 @@ def process_invoice(invoice_id: int) -> None:
                 category=item.category,
                 amount=item.amount,
                 confidence_score=item.confidence_score,
+                supplier_name=invoice.supplier_name,
+                invoice_date=invoice.invoice_date,
             ))
 
         invoice.status = InvoiceStatus.NEEDS_REVIEW.value

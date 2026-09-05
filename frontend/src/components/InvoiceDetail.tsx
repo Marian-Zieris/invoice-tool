@@ -42,6 +42,15 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
 
   const lowConfidenceItem = items.find((item) => item.confidence_score < LOW_CONFIDENCE_THRESHOLD);
 
+  // Sloučená faktura může nést položky od různých dodavatelů/z různých dat - hlavička
+  // faktury pak tuhle informaci nemůže vždy věrně shrnout jednou hodnotou, tak ji
+  // v takovém případě zobrazíme zvlášť u každé položky.
+  const distinctOrigins = new Set(
+    items.map((item) => `${item.supplier_name ?? invoice.supplier_name ?? ""}__${item.invoice_date ?? invoice.invoice_date ?? ""}`),
+  );
+  const showItemOrigin = distinctOrigins.size > 1;
+  const columnCount = showItemOrigin ? 6 : 4;
+
   return (
     <section className="min-w-0 flex-1 overflow-y-auto p-6 md:p-8">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-5">
@@ -125,6 +134,16 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
               <table className="w-full min-w-[560px] border-collapse text-[13.5px]">
                 <thead>
                   <tr>
+                    {showItemOrigin && (
+                      <>
+                        <th className="px-[18px] pb-2.5 pt-3.5 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                          Dodavatel
+                        </th>
+                        <th className="px-[18px] pb-2.5 pt-3.5 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                          Datum
+                        </th>
+                      </>
+                    )}
                     <th className="px-[18px] pb-2.5 pt-3.5 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                       Popis položky
                     </th>
@@ -144,6 +163,16 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
                     const isLow = item.confidence_score < LOW_CONFIDENCE_THRESHOLD;
                     return (
                       <tr key={item.id} className={isLow ? "bg-bad-soft" : ""}>
+                        {showItemOrigin && (
+                          <>
+                            <td className={`px-[18px] py-3 text-ink-muted ${isLow ? "border-transparent" : "border-t border-border"}`}>
+                              {item.supplier_name ?? invoice.supplier_name ?? "—"}
+                            </td>
+                            <td className={`px-[18px] py-3 text-ink-muted ${isLow ? "border-transparent" : "border-t border-border"}`}>
+                              {formatDate(item.invoice_date ?? invoice.invoice_date)}
+                            </td>
+                          </>
+                        )}
                         <td className={`group px-[18px] py-3 ${isLow ? "border-transparent" : "border-t border-border"}`}>
                           <div className="flex items-center gap-2">
                             {isLow && <WarningIcon className="h-3.5 w-3.5 flex-none text-bad" />}
@@ -190,7 +219,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
                 {invoice.total_amount !== null && (
                   <tfoot>
                     <tr>
-                      <td colSpan={3} className="border-t border-border px-[18px] py-3.5 font-bold text-ink">
+                      <td colSpan={columnCount - 1} className="border-t border-border px-[18px] py-3.5 font-bold text-ink">
                         Celkem
                       </td>
                       <td className="border-t border-border px-[18px] py-3.5 text-right font-mono font-bold tabular-nums text-ink">

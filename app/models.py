@@ -63,5 +63,10 @@ class LineItem(Base):
     amount: Mapped[float] = mapped_column(Float, default=0.0)
     confidence_score: Mapped[float] = mapped_column(Float, default=0.0)
     is_corrected: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Denormalizováno z Invoice v okamžiku vzniku položky - když se pak víc faktur sloučí
+    # do jedné (viz POST /invoices/merge), hlavička sloučené faktury může mít víc různých
+    # dodavatelů/dat najednou, ale každá jednotlivá položka si tu svůj skutečný původ nese dál.
+    supplier_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    invoice_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
     invoice: Mapped["Invoice"] = relationship(back_populates="line_items")

@@ -47,6 +47,8 @@ def _line_item_payload(item: LineItem) -> dict:
         "amount": item.amount,
         "confidence_score": item.confidence_score,
         "is_corrected": item.is_corrected,
+        "supplier_name": item.supplier_name,
+        "invoice_date": item.invoice_date.isoformat() if item.invoice_date else None,
     }
 
 
@@ -189,17 +191,28 @@ def merge_invoices(payload: MergeRequest, db: Session = Depends(get_db), current
             content=api_error("Cannot merge invoices with different currencies.", "currency_mismatch"),
         )
 
-    supplier_names = {invoice.supplier_name for invoice in invoices if invoice.supplier_name}
+    supplier_names = sorted({invoice.supplier_name for invoice in invoices if invoice.supplier_name})
     invoice_dates = {invoice.invoice_date for invoice in invoices if invoice.invoice_date}
     ocr_texts = [invoice.raw_ocr_text for invoice in invoices if invoice.raw_ocr_text]
     merged_filename = "Sloučeno: " + ", ".join(invoice.original_filename for invoice in invoices)
+
+    # Když se sloučí faktury od různých dodavatelů, hlavičkové pole nemůže nést jednu
+    # pravdivou hodnotu - spojíme jména do jednoho čitelného přehledu, ale skutečný zdroj
+    # každé položky zůstává na LineItem.supplier_name/invoice_date (viz níž).
+    merged_supplier_name: Optional[str]
+    if len(supplier_names) == 1:
+        merged_supplier_name = supplier_names[0]
+    elif supplier_names:
+        merged_supplier_name = ", ".join(supplier_names)
+    else:
+        merged_supplier_name = None
 
     merged = Invoice(
         customer_id=current_customer.id,
         original_filename=merged_filename[:255],
         file_path=f"merged:{','.join(str(invoice.id) for invoice in invoices)}",
         status=InvoiceStatus.NEEDS_REVIEW.value,
-        supplier_name=next(iter(supplier_names)) if len(supplier_names) == 1 else None,
+        supplier_name=merged_supplier_name,
         invoice_date=next(iter(invoice_dates)) if len(invoice_dates) == 1 else None,
         currency=next(iter(currencies)),
         raw_ocr_text="\n\n---\n\n".join(ocr_texts) if ocr_texts else None,
@@ -217,6 +230,8 @@ def merge_invoices(payload: MergeRequest, db: Session = Depends(get_db), current
                 amount=item.amount,
                 confidence_score=item.confidence_score,
                 is_corrected=item.is_corrected,
+                supplier_name=item.supplier_name or invoice.supplier_name,
+                invoice_date=item.invoice_date or invoice.invoice_date,
             ))
             total_amount += item.amount
 
