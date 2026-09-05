@@ -20,7 +20,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
 
   if (invoiceId === null) {
     return (
-      <section className="flex flex-1 items-center justify-center p-8">
+      <section className="flex min-h-0 flex-1 items-center justify-center p-8">
         <p className="text-[14px] text-ink-muted">Vyber fakturu ze seznamu vlevo.</p>
       </section>
     );
@@ -30,7 +30,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
 
   if (invoiceQuery.isLoading || !invoice) {
     return (
-      <section className="flex flex-1 items-center justify-center p-8">
+      <section className="flex min-h-0 flex-1 items-center justify-center p-8">
         <SpinnerIcon className="h-5 w-5 animate-spin text-ink-muted" />
       </section>
     );
@@ -52,7 +52,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
   const columnCount = showItemOrigin ? 6 : 4;
 
   return (
-    <section className="min-w-0 flex-1 overflow-y-auto p-6 md:p-8">
+    <section className="min-h-0 min-w-0 flex-1 overflow-y-auto p-6 md:p-8">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-5">
         <div>
           <h2 className="m-0 mb-1 text-[22px] font-bold tracking-tight text-ink" style={{ textWrap: "balance" }}>

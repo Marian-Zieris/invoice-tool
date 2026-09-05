@@ -63,9 +63,9 @@ export function InvoicesPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <Topbar invoices={invoicesQuery.data} />
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           <InvoiceList

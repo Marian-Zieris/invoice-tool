@@ -95,10 +95,8 @@ def _build_default_workbook(invoices: List[Invoice]) -> Workbook:
 
     for invoice in invoices:
         supplier = invoice.supplier_name or "Nerozpoznáno"
-        date_str = invoice.invoice_date.strftime("%d.%m.%Y") if invoice.invoice_date else "datum neznámé"
-        group_label = f"{supplier}   ·   {date_str}   ·   {invoice.original_filename}"
 
-        group_cell = sheet.cell(row=row, column=1, value=group_label)
+        group_cell = sheet.cell(row=row, column=1, value=invoice.original_filename)
         sheet.merge_cells(start_row=row, start_column=1, end_row=row, end_column=span)
         group_cell.font = _GROUP_FONT
         group_cell.alignment = _LEFT
