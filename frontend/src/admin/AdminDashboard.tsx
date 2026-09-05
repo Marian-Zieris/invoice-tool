@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useAdminAuth } from "./AdminAuthContext";
-import { useAdminCustomers, useCreateCustomer, useUploadTemplate } from "./hooks";
+import { useAdminCustomers, useCreateCustomer, useUpdateCategories, useUploadTemplate } from "./hooks";
 import type { ExcelTemplateConfig } from "./adminClient";
 import { ApiError } from "../api/client";
 import { ThemeToggle } from "../components/ThemeToggle";
@@ -85,6 +85,76 @@ function NewCustomerForm() {
       >
         {createCustomer.isPending ? "Vytvářím…" : "Vytvořit zákazníka"}
       </button>
+    </form>
+  );
+}
+
+function CategoriesCell({ customerId, categories }: { customerId: number; categories: string[] }) {
+  const updateCategories = useUpdateCategories();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(categories.join(", "));
+  const [error, setError] = useState<string | null>(null);
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    const parsed = parseCategories(draft);
+    if (parsed.length === 0) {
+      setError("Zadej aspoň jednu kategorii.");
+      return;
+    }
+    setError(null);
+    updateCategories.mutate(
+      { customerId, categories: parsed },
+      {
+        onSuccess: () => setEditing(false),
+        onError: (err) => setError(err instanceof ApiError ? err.message : "Uložení selhalo."),
+      },
+    );
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setDraft(categories.join(", "));
+          setEditing(true);
+        }}
+        className="flex flex-wrap items-center gap-1.5 rounded-[8px] px-1 py-1 text-left transition-colors hover:bg-surface-2"
+      >
+        {categories.length === 0 && <span className="text-[12px] text-ink-muted">žádné — klik pro nastavení</span>}
+        {categories.map((category) => (
+          <span key={category} className="rounded-md bg-surface-2 px-2 py-0.5 text-[11.5px] text-ink-muted">
+            {category}
+          </span>
+        ))}
+      </button>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex min-w-[220px] flex-col gap-2 rounded-[12px] border border-border bg-surface-2 p-3">
+      <input
+        autoFocus
+        type="text"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        placeholder="materiál, práce, doprava, ostatní"
+        className="rounded-[7px] border border-border bg-surface px-2 py-1.5 text-[12.5px] text-ink outline-none focus:border-accent"
+      />
+      {error && <p className="text-[11.5px] text-bad">{error}</p>}
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={updateCategories.isPending}
+          className="rounded-[8px] bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-ink disabled:opacity-60"
+        >
+          {updateCategories.isPending ? "Ukládám…" : "Uložit"}
+        </button>
+        <button type="button" onClick={() => setEditing(false)} className="text-[11.5px] text-ink-muted hover:text-ink">
+          Zrušit
+        </button>
+      </div>
     </form>
   );
 }
@@ -280,13 +350,7 @@ export function AdminDashboard() {
                   <tr key={customer.id}>
                     <td className="border-t border-border px-3 py-3 text-ink">{customer.email}</td>
                     <td className="border-t border-border px-3 py-3">
-                      <div className="flex flex-wrap gap-1.5">
-                        {(customer.category_rules.categories ?? []).map((category) => (
-                          <span key={category} className="rounded-md bg-surface-2 px-2 py-0.5 text-[11.5px] text-ink-muted">
-                            {category}
-                          </span>
-                        ))}
-                      </div>
+                      <CategoriesCell customerId={customer.id} categories={customer.category_rules.categories ?? []} />
                     </td>
                     <td className="border-t border-border px-3 py-3">
                       <TemplateCell customerId={customer.id} template={customer.excel_template_config} />

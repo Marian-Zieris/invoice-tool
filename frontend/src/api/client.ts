@@ -41,6 +41,29 @@ interface ApiEnvelope<T> {
   error_code?: string;
 }
 
+interface FastApiValidationError {
+  loc?: (string | number)[];
+  msg?: string;
+}
+
+export function extractErrorMessage(payload: unknown, status: number): string {
+  if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    if (typeof record.message === "string") return record.message;
+
+    // FastAPI's own validation error shape (e.g. HTTP 422) doesn't go through api_error() -
+    // it never has our {success, data, message} envelope, just a raw "detail".
+    if (Array.isArray(record.detail)) {
+      const details = record.detail as FastApiValidationError[];
+      return details
+        .map((item) => `${(item.loc ?? []).join(".")}: ${item.msg ?? "neplatná hodnota"}`)
+        .join("; ");
+    }
+    if (typeof record.detail === "string") return record.detail;
+  }
+  return `Chyba serveru (${status}).`;
+}
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {};
   const token = getToken();
@@ -72,8 +95,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const payload: ApiEnvelope<T> | null = await response.json().catch(() => null);
 
   if (!response.ok || !payload?.success) {
-    const message = payload?.message ?? `Chyba serveru (${response.status}).`;
-    throw new ApiError(message, response.status, payload?.error_code);
+    throw new ApiError(extractErrorMessage(payload, response.status), response.status, payload?.error_code);
   }
 
   return payload.data;
@@ -100,7 +122,7 @@ export async function downloadInvoiceExport(invoiceIds: number[]): Promise<void>
 
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
-    throw new ApiError(payload?.message ?? "Export se nezdařil.", response.status);
+    throw new ApiError(extractErrorMessage(payload, response.status), response.status);
   }
 
   const blob = await response.blob();

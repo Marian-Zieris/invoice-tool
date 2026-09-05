@@ -1,4 +1,4 @@
-import { ApiError } from "../api/client";
+import { ApiError, extractErrorMessage } from "../api/client";
 
 const ADMIN_KEY_STORAGE = "dokladovna_admin_key";
 
@@ -45,7 +45,7 @@ async function adminRequest<T>(path: string, method: string, body?: unknown, isF
   const payload: ApiEnvelope<T> | null = await response.json().catch(() => null);
 
   if (!response.ok || !payload?.success) {
-    throw new ApiError(payload?.message ?? `Chyba serveru (${response.status}).`, response.status, payload?.error_code);
+    throw new ApiError(extractErrorMessage(payload, response.status), response.status, payload?.error_code);
   }
   return payload.data;
 }
@@ -86,6 +86,8 @@ export interface UploadTemplateOptions {
 export const adminApi = {
   listCustomers: () => adminRequest<AdminCustomer[]>("/customers", "GET"),
   createCustomer: (payload: CreateCustomerPayload) => adminRequest<AdminCustomer>("/customers", "POST", payload),
+  updateCategories: (customerId: number, categories: string[]) =>
+    adminRequest<AdminCustomer>(`/customers/${customerId}`, "PATCH", { categories }),
   uploadTemplate: (customerId: number, options: UploadTemplateOptions) => {
     const formData = new FormData();
     if (options.file) formData.append("file", options.file);

@@ -1,10 +1,10 @@
 import os
 import uuid
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -25,6 +25,10 @@ class CustomerCreate(BaseModel):
     password: str
     excel_template_config: Optional[dict] = None
     category_rules: Optional[dict] = None
+
+
+class CustomerCategoriesUpdate(BaseModel):
+    categories: List[str] = Field(min_length=1)
 
 
 @router.post("/customers")
@@ -66,6 +70,24 @@ def list_customers(db: Session = Depends(get_db)):
         }
         for customer in customers
     ], "Customers fetched successfully.")
+
+
+@router.patch("/customers/{customer_id}")
+def update_customer_categories(customer_id: int, payload: CustomerCategoriesUpdate, db: Session = Depends(get_db)):
+    """Umožní upravit seznam kategorií i po založení účtu - dřív šly nastavit jen jednou při create_customer."""
+    customer = db.get(Customer, customer_id)
+    if customer is None:
+        return JSONResponse(status_code=404, content=api_error("Customer not found.", "customer_not_found"))
+
+    customer.category_rules = {**customer.category_rules, "categories": payload.categories}
+    db.commit()
+    db.refresh(customer)
+    return api_success({
+        "id": customer.id,
+        "email": customer.email,
+        "excel_template_config": customer.excel_template_config,
+        "category_rules": customer.category_rules,
+    }, "Customer categories updated successfully.")
 
 
 @router.post("/customers/{customer_id}/template")

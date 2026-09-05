@@ -17,6 +17,15 @@ export function useCreateCustomer() {
   });
 }
 
+export function useUpdateCategories() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ customerId, categories }: { customerId: number; categories: string[] }) =>
+      adminApi.updateCategories(customerId, categories),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-customers"] }),
+  });
+}
+
 export function useUploadTemplate() {
   const queryClient = useQueryClient();
   return useMutation({
