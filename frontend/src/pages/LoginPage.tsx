@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { ApiError } from "../api/client";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -27,6 +28,9 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="fixed right-4 top-4 z-50">
+        <ThemeToggle />
+      </div>
       <div className="glass-panel w-full max-w-sm rounded-[22px] p-8">
         <div className="mb-6 flex items-center gap-2.5">
           <div className="flex h-8 w-8 flex-none items-center justify-center rounded-[10px] bg-accent text-[16px] font-bold text-accent-ink">

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useInvoiceDetail } from "../hooks/useInvoiceDetail";
 import { useInvoiceItems } from "../hooks/useInvoiceItems";
 import { useUpdateItem } from "../hooks/useUpdateItem";
+import { useUpdateInvoice } from "../hooks/useUpdateInvoice";
 import { formatAmount, formatDate, formatDateTime } from "../lib/format";
 import { StatusPill } from "./StatusPill";
 import { ConfidenceMeter } from "./ConfidenceMeter";
@@ -14,6 +15,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
   const invoiceQuery = useInvoiceDetail(invoiceId);
   const itemsQuery = useInvoiceItems(invoiceId);
   const updateItem = useUpdateItem();
+  const updateInvoice = useUpdateInvoice();
   const [showRawText, setShowRawText] = useState(false);
 
   if (invoiceId === null) {
@@ -58,7 +60,16 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
             <div className="font-mono text-[26px] font-semibold tabular-nums text-ink">
               {new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 }).format(invoice.total_amount)}
             </div>
-            <div className="text-[13px] text-ink-muted">{invoice.currency} celkem</div>
+            <div className="flex items-center justify-end gap-1 text-[13px] text-ink-muted">
+              <span className="w-14">
+                <EditableCell
+                  value={invoice.currency}
+                  align="right"
+                  onSave={(value) => updateInvoice.mutate({ invoiceId: invoice.id, changes: { currency: value.toUpperCase() } })}
+                />
+              </span>
+              celkem
+            </div>
           </div>
         )}
       </div>

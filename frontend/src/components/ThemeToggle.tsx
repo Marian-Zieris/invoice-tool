@@ -6,7 +6,7 @@ export function ThemeToggle() {
 
   return (
     <div
-      className="glass-panel fixed right-4 top-4 z-50 flex items-center gap-0.5 rounded-full p-1"
+      className="glass-panel flex flex-none items-center gap-0.5 rounded-full p-1"
       role="group"
       aria-label="Světlý nebo tmavý režim"
     >

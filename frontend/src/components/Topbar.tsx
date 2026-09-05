@@ -1,5 +1,6 @@
 import type { InvoiceSummary } from "../api/types";
 import { UploadButton } from "./UploadButton";
+import { ThemeToggle } from "./ThemeToggle";
 
 function summarize(invoices: InvoiceSummary[] | undefined): string {
   if (!invoices) return "Načítám…";
@@ -20,7 +21,10 @@ export function Topbar({ invoices }: { invoices: InvoiceSummary[] | undefined })
         </h1>
         <p className="mt-0.5 text-[13px] text-ink-muted">{summarize(invoices)}</p>
       </div>
-      <UploadButton />
+      <div className="flex items-center gap-3">
+        <ThemeToggle />
+        <UploadButton />
+      </div>
     </header>
   );
 }
