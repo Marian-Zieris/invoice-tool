@@ -1,5 +1,11 @@
+import { NavLink } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { InvoiceIcon, LogoutIcon } from "./icons";
+import { InvoiceIcon, LogoutIcon, SettingsIcon } from "./icons";
+
+const NAV_ITEMS = [
+  { to: "/", label: "Faktury", icon: InvoiceIcon, end: true },
+  { to: "/settings", label: "Nastavení", icon: SettingsIcon, end: false },
+];
 
 export function Sidebar() {
   const { logout } = useAuth();
@@ -14,10 +20,21 @@ export function Sidebar() {
       </div>
 
       <nav className="flex flex-col gap-0.5">
-        <span className="flex items-center gap-2.5 rounded-[10px] bg-sidebar-active px-3 py-2.5 text-[14px] font-medium text-sidebar-ink">
-          <InvoiceIcon className="h-[18px] w-[18px] flex-none" />
-          Faktury
-        </span>
+        {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-[14px] font-medium transition-colors ${
+                isActive ? "bg-sidebar-active text-sidebar-ink" : "text-sidebar-muted hover:text-sidebar-ink"
+              }`
+            }
+          >
+            <Icon className="h-[18px] w-[18px] flex-none" />
+            {label}
+          </NavLink>
+        ))}
       </nav>
 
       <button

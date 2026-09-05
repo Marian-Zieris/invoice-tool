@@ -21,6 +21,17 @@ export function InvoicesPage() {
     }
   }, [invoices, selectedId]);
 
+  function handleDeleted() {
+    if (selectedId !== null) {
+      setSelectedForExport((current) => {
+        const next = new Set(current);
+        next.delete(selectedId);
+        return next;
+      });
+    }
+    setSelectedId(null);
+  }
+
   function toggleExport(id: number) {
     setSelectedForExport((current) => {
       const next = new Set(current);
@@ -65,7 +76,7 @@ export function InvoicesPage() {
             onExport={handleExport}
             isExporting={isExporting}
           />
-          <InvoiceDetail invoiceId={selectedId} />
+          <InvoiceDetail invoiceId={selectedId} onDeleted={handleDeleted} />
         </div>
         {exportError && (
           <p className="border-t border-border px-8 py-2 text-[12.5px] text-bad">{exportError}</p>

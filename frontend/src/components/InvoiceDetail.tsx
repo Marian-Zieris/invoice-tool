@@ -3,19 +3,21 @@ import { useInvoiceDetail } from "../hooks/useInvoiceDetail";
 import { useInvoiceItems } from "../hooks/useInvoiceItems";
 import { useUpdateItem } from "../hooks/useUpdateItem";
 import { useUpdateInvoice } from "../hooks/useUpdateInvoice";
+import { useDeleteInvoice } from "../hooks/useDeleteInvoice";
 import { formatAmount, formatDate, formatDateTime } from "../lib/format";
 import { StatusPill } from "./StatusPill";
 import { ConfidenceMeter } from "./ConfidenceMeter";
 import { EditableCell } from "./EditableCell";
-import { EditIcon, SpinnerIcon, WarningIcon } from "./icons";
+import { EditIcon, SpinnerIcon, TrashIcon, WarningIcon } from "./icons";
 
 const LOW_CONFIDENCE_THRESHOLD = 0.6;
 
-export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
+export function InvoiceDetail({ invoiceId, onDeleted }: { invoiceId: number | null; onDeleted: () => void }) {
   const invoiceQuery = useInvoiceDetail(invoiceId);
   const itemsQuery = useInvoiceItems(invoiceId);
   const updateItem = useUpdateItem();
   const updateInvoice = useUpdateInvoice();
+  const deleteInvoice = useDeleteInvoice();
   const [showRawText, setShowRawText] = useState(false);
 
   if (invoiceId === null) {
@@ -55,23 +57,38 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
             <span>{invoice.invoice_date ? formatDate(invoice.invoice_date) : formatDateTime(invoice.created_at)}</span>
           </div>
         </div>
-        {invoice.total_amount !== null && (
-          <div className="text-right">
-            <div className="font-mono text-[26px] font-semibold tabular-nums text-ink">
-              {new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 }).format(invoice.total_amount)}
+        <div className="flex items-start gap-3">
+          {invoice.total_amount !== null && (
+            <div className="text-right">
+              <div className="font-mono text-[26px] font-semibold tabular-nums text-ink">
+                {new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 }).format(invoice.total_amount)}
+              </div>
+              <div className="flex items-center justify-end gap-1 text-[13px] text-ink-muted">
+                <span className="w-14">
+                  <EditableCell
+                    value={invoice.currency}
+                    align="right"
+                    onSave={(value) => updateInvoice.mutate({ invoiceId: invoice.id, changes: { currency: value.toUpperCase() } })}
+                  />
+                </span>
+                celkem
+              </div>
             </div>
-            <div className="flex items-center justify-end gap-1 text-[13px] text-ink-muted">
-              <span className="w-14">
-                <EditableCell
-                  value={invoice.currency}
-                  align="right"
-                  onSave={(value) => updateInvoice.mutate({ invoiceId: invoice.id, changes: { currency: value.toUpperCase() } })}
-                />
-              </span>
-              celkem
-            </div>
-          </div>
-        )}
+          )}
+          <button
+            type="button"
+            title="Smazat fakturu"
+            disabled={deleteInvoice.isPending}
+            onClick={() => {
+              if (window.confirm(`Opravdu smazat fakturu "${invoice.original_filename}"? Tuto akci nelze vrátit zpět.`)) {
+                deleteInvoice.mutate(invoice.id, { onSuccess: onDeleted });
+              }
+            }}
+            className="flex flex-none items-center justify-center rounded-[10px] border border-border bg-surface p-2.5 text-ink-muted transition-colors hover:border-bad hover:text-bad disabled:opacity-50"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {isPending && (

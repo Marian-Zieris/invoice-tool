@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import { LoginPage } from "./pages/LoginPage";
 import { InvoicesPage } from "./pages/InvoicesPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { AdminPage } from "./admin/AdminPage";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -21,6 +22,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <InvoicesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <SettingsPage />
           </ProtectedRoute>
         }
       />

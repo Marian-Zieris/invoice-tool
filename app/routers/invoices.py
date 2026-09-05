@@ -1,3 +1,4 @@
+import os
 from datetime import date
 from typing import List, Optional
 
@@ -110,6 +111,25 @@ def update_invoice(
     result = _invoice_summary_payload(invoice)
     result["raw_ocr_text"] = invoice.raw_ocr_text or ""
     return api_success(result, "Invoice updated successfully.")
+
+
+@router.delete("/invoices/{invoice_id}")
+def delete_invoice(invoice_id: int, db: Session = Depends(get_db), current_customer: Customer = Depends(get_current_customer)):
+    invoice = db.get(Invoice, invoice_id)
+    if invoice is None or invoice.customer_id != current_customer.id:
+        return JSONResponse(status_code=404, content=api_error("Invoice not found.", "invoice_not_found"))
+
+    file_path = invoice.file_path
+    db.delete(invoice)
+    db.commit()
+
+    if file_path:
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+
+    return api_success(None, "Invoice deleted successfully.")
 
 
 @router.get("/invoices/{invoice_id}/items")
