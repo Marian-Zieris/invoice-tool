@@ -19,8 +19,12 @@ export function UploadButton() {
         accept={ACCEPTED_EXTENSIONS}
         className="hidden"
         onChange={(event) => {
-          const files = event.target.files;
-          if (files && files.length > 0) {
+          // Musí se zkopírovat do pole synchronně, hned tady - event.target.files je živý
+          // FileList navázaný na input, a jakmile o pár řádků níž vyčistíme input.value,
+          // prohlížeč ho vyprázdní i zpětně, takže by ke skutečnému uploadu (o tik později,
+          // uvnitř mutationFn) nedorazil žádný soubor.
+          const files = event.target.files ? Array.from(event.target.files) : [];
+          if (files.length > 0) {
             setError(null);
             upload.mutate(files, {
               onError: (err) => setError(err instanceof ApiError ? err.message : "Nahrání se nezdařilo."),

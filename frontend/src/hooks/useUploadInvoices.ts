@@ -5,9 +5,9 @@ export function useUploadInvoices() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (files: FileList) => {
+    mutationFn: (files: File[]) => {
       const formData = new FormData();
-      Array.from(files).forEach((file) => formData.append("files", file));
+      files.forEach((file) => formData.append("files", file));
       return api.upload("/invoices/upload", formData);
     },
     onSuccess: () => {
