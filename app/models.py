@@ -68,5 +68,10 @@ class LineItem(Base):
     # dodavatelů/dat najednou, ale každá jednotlivá položka si tu svůj skutečný původ nese dál.
     supplier_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     invoice_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    # Vyplní se JEN pokud doklad sám uvádí rozpis DPH (typicky faktura od plátce DPH) -
+    # `amount` zůstává částka VČETNĚ DPH jako dosud. Nikdy se nedopočítává/neodhaduje -
+    # spousta živnostníků/mikrofirem (cílovka appky) DPH neplatí a doklad ho vůbec nemá.
+    amount_without_vat: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    vat_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     invoice: Mapped["Invoice"] = relationship(back_populates="line_items")

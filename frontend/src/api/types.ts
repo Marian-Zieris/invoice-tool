@@ -32,6 +32,8 @@ export interface LineItem {
   is_corrected: boolean;
   supplier_name: string | null;
   invoice_date: string | null;
+  amount_without_vat: number | null;
+  vat_rate: number | null;
 }
 
 export interface Customer {

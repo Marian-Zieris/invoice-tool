@@ -21,6 +21,8 @@ class LineItemUpdate(BaseModel):
     category: Optional[str] = None
     amount: Optional[float] = None
     confidence_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    amount_without_vat: Optional[float] = None
+    vat_rate: Optional[float] = None
 
 
 class InvoiceUpdate(BaseModel):
@@ -49,6 +51,8 @@ def _line_item_payload(item: LineItem) -> dict:
         "is_corrected": item.is_corrected,
         "supplier_name": item.supplier_name,
         "invoice_date": item.invoice_date.isoformat() if item.invoice_date else None,
+        "amount_without_vat": item.amount_without_vat,
+        "vat_rate": item.vat_rate,
     }
 
 
@@ -232,6 +236,8 @@ def merge_invoices(payload: MergeRequest, db: Session = Depends(get_db), current
                 is_corrected=item.is_corrected,
                 supplier_name=item.supplier_name or invoice.supplier_name,
                 invoice_date=item.invoice_date or invoice.invoice_date,
+                amount_without_vat=item.amount_without_vat,
+                vat_rate=item.vat_rate,
             ))
             total_amount += item.amount
 

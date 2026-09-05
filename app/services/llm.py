@@ -30,6 +30,8 @@ class LineItemExtraction(BaseModel):
     category: str = "uncategorized"
     amount: float
     confidence_score: float = Field(ge=0.0, le=1.0)
+    amount_without_vat: Optional[float] = None
+    vat_rate: Optional[float] = None
 
 
 class InvoiceExtraction(BaseModel):
@@ -60,8 +62,10 @@ def _build_system_prompt(categories: List[str]) -> str:
             {
                 "description": "string",
                 "category": f"jedna z: {', '.join(categories)}",
-                "amount": "cislo",
+                "amount": "cislo - CELKOVA cena polozky VCETNE DPH",
                 "confidence_score": "0.0-1.0",
+                "amount_without_vat": "cislo nebo null - cena bez DPH, jen pokud ji doklad sam uvadi",
+                "vat_rate": "cislo nebo null - sazba DPH v procentech (napr. 21, 12, 0), jen pokud je na dokladu",
             }
         ],
     }
@@ -76,7 +80,11 @@ def _build_system_prompt(categories: List[str]) -> str:
         "Castky pis jako cisla bez mezer a bez symbolu meny.\n"
         "Menu urcuj aktivne z textu - hledej symboly (Kc, Kč, $, €, Rp, Rs, £) i psane kody (CZK, EUR, USD, IDR). "
         "Teprve kdyz text neobsahuje vubec zadnou stopu po mene, pouzij CZK jako rozumny vychozi odhad "
-        "(nikdy nevracej null u currency)."
+        "(nikdy nevracej null u currency).\n"
+        "DPH (amount_without_vat, vat_rate) vyplnuj VYHRADNE kdyz je doklad sam explicitne uvadi (napr. sloupce "
+        "'zaklad dane'/'zaklad'/'bez DPH' a 'sazba'/'DPH%', nebo souhrnna tabulka 'Vycisleni DPH'). Spousta "
+        "zivnostniku a mikrofirem NENI platci DPH a jejich doklady zadne DPH neobsahuji - v takovem pripade "
+        "NIKDY DPH nedopocitavej ani neodhaduj, nech obe pole null."
     )
 
 

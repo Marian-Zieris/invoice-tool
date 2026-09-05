@@ -24,6 +24,8 @@ DEFAULT_COLUMNS: Dict[str, str] = {
     "currency": "Měna",
     "confidence_score": "Jistota",
     "is_corrected": "Opraveno ručně",
+    "amount_without_vat": "Základ daně",
+    "vat_rate": "Sazba DPH (%)",
 }
 
 # Sloupce reálného (bez šablony) exportu - jen účetně relevantní údaje, žádné interní
@@ -56,6 +58,8 @@ def _row_for_line_item(invoice: Invoice, item) -> Dict[str, Any]:
         "currency": invoice.currency,
         "confidence_score": item.confidence_score,
         "is_corrected": item.is_corrected,
+        "amount_without_vat": item.amount_without_vat if item.amount_without_vat is not None else "",
+        "vat_rate": item.vat_rate if item.vat_rate is not None else "",
     }
 
 
@@ -71,6 +75,38 @@ def _build_dataframe(invoices: List[Invoice], columns: List[str]) -> pd.DataFram
 def _fill_row(sheet, row: int, fill: PatternFill, span: int) -> None:
     for col_idx in range(1, span + 1):
         sheet.cell(row=row, column=col_idx).fill = fill
+
+
+def _vat_breakdown(items: List[Any]) -> Optional[tuple]:
+    """Vrátí (základ daně, [(popis sazby, částka DPH), ...]) - ale JEN pokud má úplně
+    každá položka faktury vyplněné amount_without_vat. Zdroj (viz llm.py) tam dává hodnotu
+    výhradně když ji doklad sám uvádí, takže "chybí u některé položky" typicky znamená
+    "doklad DPH vůbec neřeší" (např. dodavatel není plátce) - v tom případě nikdy
+    nedopočítáváme přibližný/domnělý rozpad, radši ukážeme jen prostý mezisoučet.
+    """
+    if not items or any(item.amount_without_vat is None for item in items):
+        return None
+
+    vat_base_total = round(sum(item.amount_without_vat for item in items), 2)
+    rate_totals: Dict[Optional[float], float] = {}
+    for item in items:
+        rate_totals[item.vat_rate] = rate_totals.get(item.vat_rate, 0.0) + (item.amount - item.amount_without_vat)
+
+    rate_rows = [
+        (f"DPH {rate:g} %" if rate is not None else "DPH", round(rate_totals[rate], 2))
+        for rate in sorted(rate_totals, key=lambda r: (r is None, r))
+    ]
+    return vat_base_total, rate_rows
+
+
+def _write_label_row(sheet, row: int, span: int, label: str, amount: float, currency: str, font: Font) -> None:
+    sheet.cell(row=row, column=span - 2, value=label).font = font
+    sheet.cell(row=row, column=span - 2).alignment = _RIGHT
+    amount_cell = sheet.cell(row=row, column=span - 1, value=amount)
+    amount_cell.font = font
+    amount_cell.number_format = _AMOUNT_FORMAT
+    amount_cell.alignment = _RIGHT
+    sheet.cell(row=row, column=span, value=currency).font = font
 
 
 def _build_default_workbook(invoices: List[Invoice]) -> Workbook:
@@ -119,13 +155,18 @@ def _build_default_workbook(invoices: List[Invoice]) -> Workbook:
             subtotal += item.amount
             row += 1
 
-        sheet.cell(row=row, column=4, value="Mezisoučet").font = _SUBTOTAL_FONT
-        sheet.cell(row=row, column=4).alignment = _RIGHT
-        subtotal_cell = sheet.cell(row=row, column=5, value=subtotal)
-        subtotal_cell.font = _SUBTOTAL_FONT
-        subtotal_cell.number_format = _AMOUNT_FORMAT
-        subtotal_cell.alignment = _RIGHT
-        sheet.cell(row=row, column=6, value=invoice.currency).font = _SUBTOTAL_FONT
+        vat_info = _vat_breakdown(invoice.line_items)
+        if vat_info is not None:
+            vat_base_total, rate_rows = vat_info
+            _write_label_row(sheet, row, span, "Základ daně", vat_base_total, invoice.currency, _SUBTOTAL_FONT)
+            row += 1
+            for label, vat_amount in rate_rows:
+                _write_label_row(sheet, row, span, label, vat_amount, invoice.currency, _SUBTOTAL_FONT)
+                row += 1
+            _write_label_row(sheet, row, span, "Celkem s DPH", subtotal, invoice.currency, _SUBTOTAL_FONT)
+        else:
+            _write_label_row(sheet, row, span, "Mezisoučet", subtotal, invoice.currency, _SUBTOTAL_FONT)
+
         for col_idx in range(1, span + 1):
             sheet.cell(row=row, column=col_idx).border = _THIN_BOTTOM
         row += 2  # mezera mezi fakturami
@@ -134,13 +175,7 @@ def _build_default_workbook(invoices: List[Invoice]) -> Workbook:
 
     for currency, total in currency_totals.items():
         label = "Celkem" if len(currency_totals) == 1 else f"Celkem ({currency})"
-        sheet.cell(row=row, column=4, value=label).font = _GRAND_TOTAL_FONT
-        sheet.cell(row=row, column=4).alignment = _RIGHT
-        total_cell = sheet.cell(row=row, column=5, value=total)
-        total_cell.font = _GRAND_TOTAL_FONT
-        total_cell.number_format = _AMOUNT_FORMAT
-        total_cell.alignment = _RIGHT
-        sheet.cell(row=row, column=6, value=currency).font = _GRAND_TOTAL_FONT
+        _write_label_row(sheet, row, span, label, total, currency, _GRAND_TOTAL_FONT)
         row += 1
 
     return workbook

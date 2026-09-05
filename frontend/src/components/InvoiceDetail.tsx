@@ -51,6 +51,26 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
   const showItemOrigin = distinctOrigins.size > 1;
   const columnCount = showItemOrigin ? 6 : 4;
 
+  // Jen když MÁ položka bez_DPH vyplněné - to se stane výhradně když to sám doklad uváděl
+  // (viz llm.py), takže "chybí u některé položky" typicky znamená "dodavatel není plátce
+  // DPH" a rozpad se tam prostě dopočítávat nemá.
+  const vatBreakdown = (() => {
+    if (items.length === 0 || items.some((item) => item.amount_without_vat === null)) return null;
+    const vatBaseTotal = items.reduce((sum, item) => sum + (item.amount_without_vat ?? 0), 0);
+    const rateTotals = new Map<number | null, number>();
+    for (const item of items) {
+      const vatAmount = item.amount - (item.amount_without_vat ?? 0);
+      rateTotals.set(item.vat_rate, (rateTotals.get(item.vat_rate) ?? 0) + vatAmount);
+    }
+    const rateRows = Array.from(rateTotals.entries())
+      .sort(([a], [b]) => (a ?? -1) - (b ?? -1))
+      .map(([rate, amount]) => ({
+        label: rate !== null ? `DPH ${rate} %` : "DPH",
+        amount: Math.round(amount * 100) / 100,
+      }));
+    return { vatBaseTotal: Math.round(vatBaseTotal * 100) / 100, rateRows };
+  })();
+
   return (
     <section className="min-h-0 min-w-0 flex-1 overflow-y-auto p-6 md:p-8">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-5">
@@ -218,9 +238,31 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
                 </tbody>
                 {invoice.total_amount !== null && (
                   <tfoot>
+                    {vatBreakdown && (
+                      <>
+                        <tr>
+                          <td colSpan={columnCount - 1} className="border-t border-border px-[18px] py-2 text-right text-[12.5px] text-ink-muted">
+                            Základ daně
+                          </td>
+                          <td className="border-t border-border px-[18px] py-2 text-right font-mono text-[12.5px] tabular-nums text-ink-muted">
+                            {formatAmount(vatBreakdown.vatBaseTotal, invoice.currency)}
+                          </td>
+                        </tr>
+                        {vatBreakdown.rateRows.map((rateRow) => (
+                          <tr key={rateRow.label}>
+                            <td colSpan={columnCount - 1} className="px-[18px] py-2 text-right text-[12.5px] text-ink-muted">
+                              {rateRow.label}
+                            </td>
+                            <td className="px-[18px] py-2 text-right font-mono text-[12.5px] tabular-nums text-ink-muted">
+                              {formatAmount(rateRow.amount, invoice.currency)}
+                            </td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
                     <tr>
                       <td colSpan={columnCount - 1} className="border-t border-border px-[18px] py-3.5 font-bold text-ink">
-                        Celkem
+                        {vatBreakdown ? "Celkem s DPH" : "Celkem"}
                       </td>
                       <td className="border-t border-border px-[18px] py-3.5 text-right font-mono font-bold tabular-nums text-ink">
                         {formatAmount(invoice.total_amount, invoice.currency)}
