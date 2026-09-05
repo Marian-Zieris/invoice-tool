@@ -35,7 +35,7 @@ class LineItemExtraction(BaseModel):
 class InvoiceExtraction(BaseModel):
     supplier_name: Optional[str] = None
     invoice_date: Optional[str] = None
-    currency: str = "CZK"
+    currency: Optional[str] = "CZK"
     total_amount: Optional[float] = None
     line_items: List[LineItemExtraction] = Field(default_factory=list)
 
