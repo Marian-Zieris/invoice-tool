@@ -141,9 +141,28 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
   Soubory: `app/routers/upload.py`, `app/routers/customers.py`, `Dockerfile`,
   `pyproject.toml`, `.env.example`.
 
-- [ ] **D6 — Bezpečnostní položky nalezené navíc při opravách**
-  (doplním průběžně, pokud narazím — appka se prochází podruhé cíleně na
-  auth/upload/data handling podle bodu 4 zadání)
+- [x] **D6 — Bezpečnostní položky nalezené navíc při opravách**
+  Cílená druhá kontrola auth/upload/data handling (zadání bod 4), nad rámec
+  věcí už řešených v K2/D4:
+  - Nalezeno a opraveno rovnou v K2: backend port `8000` publikovaný v produkci
+    (viz K2 výše).
+  - Nalezeno a opraveno rovnou v D4: `os.path.basename()` na uploadech (N1).
+  - Grep na nebezpečné vzory (`eval`, `exec`, `os.system`, `subprocess`,
+    `pickle`, raw SQL string interpolace, hardcoded secrety) - čisté, nic
+    nenalezeno. Veškerý DB přístup jde přes SQLAlchemy ORM s parametrizací.
+  - JWT: `algorithms=[JWT_ALGORITHM]` explicitně v `decode()` - vyloučená
+    "alg=none" obejití. Smazaný zákazník okamžitě přestane projít
+    `get_current_customer` (kontrola existence v DB při každém requestu, ne
+    jen podpis tokenu) - není problém s platnými tokeny po smazání účtu.
+  - Frontend nikde nepoužívá `VITE_*`/`import.meta.env` proměnné - žádné
+    riziko, že se tajemství omylem zabalí do klientského JS bundlu.
+  - Zvážil jsem a VĚDOMĚ NEIMPLEMENTOVAL "Excel formula injection" sanitizaci
+    (běžná položka bezpečnostních checklistů - řetězec začínající `=`/`+`/`-`/`@`
+    v buňce). U pravého `.xlsx` psaného přes openpyxl (na rozdíl od `.csv`) má
+    každá buňka v XML explicitní typ (řetězec/formule/číslo) - Excel string
+    hodnotu nepřevyhodnocuje jako vzorec jen podle prvního znaku, to je čistě
+    CSV problém. Přidat sem defenzivní escapování by jen kazilo legitimní data
+    (např. popisky začínající pomlčkou) bez reálného bezpečnostního přínosu.
 
 ## NICE-TO-HAVE (udělám, pokud zbyde prostor)
 
