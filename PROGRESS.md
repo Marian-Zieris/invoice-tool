@@ -76,11 +76,30 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
 
 ## DŮLEŽITÉ (před zákazníkem č. 5–10)
 
-- [ ] **D1 — Zpracování na pozadí bez retry/timeoutu/watchdogu**
-  Plán: přidat `Invoice.processing_started_at`, watchdog funkci volanou
-  periodicky (APScheduler nebo jednoduchý background loop při startu appky),
-  která fakturu zaseklou v `processing` déle než N minut vrátí zpět ke zpracování
-  (s omezeným počtem pokusů) nebo označí jako `ocr_failed`.
+- [x] **D1 — Zpracování na pozadí bez retry/timeoutu/watchdogu**
+  Řešení: nové sloupce `Invoice.processing_started_at`/`retry_count` (migrace
+  `74d14ee849c1`). `pipeline.reap_stuck_invoices()` najde faktury v `processing`
+  starší než `STUCK_PROCESSING_MINUTES` (default 10 min) - do `MAX_PROCESSING_RETRIES`
+  (default 2) je vrátí na `uploaded` a nechá znovu zpracovat, po vyčerpání pokusů
+  je označí `ocr_failed`. Spouští se z `app/main.py` (`_watchdog_loop`, asyncio
+  task na startupu appky, žádná nová infra/závislost) každých `WATCHDOG_INTERVAL_SECONDS`
+  (default 120s). Vědomě jednoduché řešení odpovídající velikosti appky (jeden
+  proces) - reálná fronta (Celery/RQ) je další krok, až přibude zákazníků (viz
+  DEPLOYMENT.md).
+  Ověřeno živě dvakrát: (1) přímé volání `reap_stuck_invoices()` na uměle
+  zaseklé faktuře - první průchod ji vrátil na `uploaded` s `retry_count=1`,
+  po nastavení `retry_count=2` druhý průchod ji correctně poslal do `ocr_failed`;
+  (2) integrační test celé smyčky se zkráceným intervalem (`WATCHDOG_INTERVAL_SECONDS=8`,
+  `STUCK_PROCESSING_MINUTES=1`) - zaseklá faktura se skutečnou účtenkou na disku
+  byla watchdogem nalezena, requeue-nuta A automaticky doopravdu zpracována
+  (OCR+LLM) až do `needs_review` se správnými daty, bez jakéhokoliv ručního zásahu.
+  Soubory: `app/models.py`, `alembic/versions/74d14ee849c1_*.py` (nový),
+  `app/services/pipeline.py`, `app/main.py`.
+
+- [x] **D5 — Chybí index na FK sloupcích (`customer_id`, `invoice_id`)**
+  Řešení: `index=True` na obou sloupcích v `app/models.py`, promítnuto do stejné
+  migrace `74d14ee849c1` jako D1 (`ix_invoices_customer_id`, `ix_line_items_invoice_id`).
+  Ověřeno: `\d invoices` / `\d line_items` v produkční DB ukazují oba indexy.
 
 - [ ] **D2 — Špatná měna se zobrazí s vysokou jistotou (600× chyba beze stopy)**
   Plán: LLM prompt rozšířit o `currency_confidence`, uložit na `Invoice`,
@@ -94,9 +113,6 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
   Plán: `python-magic` kontrola skutečného typu souboru + denní limit počtu
   uploadů na zákazníka.
 
-- [ ] **D5 — Chybí index na FK sloupcích (`customer_id`, `invoice_id`)**
-  Plán: nová Alembic migrace, `CREATE INDEX` na obou sloupcích.
-
 - [ ] **D6 — Bezpečnostní položky nalezené navíc při opravách**
   (doplním průběžně, pokud narazím — appka se prochází podruhé cíleně na
   auth/upload/data handling podle bodu 4 zadání)
@@ -104,7 +120,8 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
 ## NICE-TO-HAVE (udělám, pokud zbyde prostor)
 
 - [ ] N1 — `os.path.basename()` na nahrávaný filename (defense-in-depth)
-- [ ] N2 — `/health` ověří i spojení na DB
+- [x] N2 — `/health` ověří i spojení na DB (hotovo mimochodem při D1 - `app/main.py`,
+  `SELECT 1` přes vlastní DB session, `success:false`/`status:degraded` při výpadku)
 - [ ] N3 — Detekce duplicitního uploadu (hash souboru)
 - [ ] N4 — Drag & drop upload
 - [ ] N5 — Základní automatizované testy (pytest) + GitHub Actions CI

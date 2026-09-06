@@ -1,6 +1,7 @@
 import logging
-from datetime import date, datetime
-from typing import Optional
+import os
+from datetime import date, datetime, timedelta
+from typing import List, Optional
 
 from app.db import SessionLocal
 from app.models import Invoice, InvoiceStatus, LineItem
@@ -10,6 +11,13 @@ from app.services.ocr import extract_text_from_file
 logger = logging.getLogger(__name__)
 
 _DATE_FORMATS = ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y")
+
+# Kolik minut smí faktura sedět v "processing", než ji watchdog (viz
+# reap_stuck_invoices, spouští se z app/main.py) považuje za zaseklou - typicky
+# pád procesu nebo výpadek sítě uprostřed OCR/LLM volání, po kterém by jinak
+# zůstala ve zpracování navždy (BackgroundTasks nemají žádný vlastní timeout).
+STUCK_PROCESSING_MINUTES = int(os.environ.get("STUCK_PROCESSING_MINUTES", "10"))
+MAX_PROCESSING_RETRIES = int(os.environ.get("MAX_PROCESSING_RETRIES", "2"))
 
 
 def _parse_date(value: Optional[str]) -> Optional[date]:
@@ -37,6 +45,7 @@ def process_invoice(invoice_id: int) -> None:
             return
 
         invoice.status = InvoiceStatus.PROCESSING.value
+        invoice.processing_started_at = datetime.utcnow()
         db.commit()
 
         try:
@@ -106,3 +115,43 @@ def process_invoice(invoice_id: int) -> None:
         db.commit()
     finally:
         db.close()
+
+
+def reap_stuck_invoices() -> List[int]:
+    """Najde faktury zaseklé v `processing` déle než STUCK_PROCESSING_MINUTES
+    a buď je vrátí zpět ke zpracování (do MAX_PROCESSING_RETRIES pokusů), nebo
+    je po vyčerpání pokusů označí jako `ocr_failed` - nikdy je nenechá viset
+    v `processing` navždy beze změny. Vrací ID faktur, které je potřeba znovu
+    poslat do process_invoice (volající strana, viz app/main.py, to udělá mimo
+    tuhle DB session).
+    """
+    cutoff = datetime.utcnow() - timedelta(minutes=STUCK_PROCESSING_MINUTES)
+    db = SessionLocal()
+    requeued: List[int] = []
+    try:
+        stuck = (
+            db.query(Invoice)
+            .filter(Invoice.status == InvoiceStatus.PROCESSING.value)
+            .filter(Invoice.processing_started_at.isnot(None))
+            .filter(Invoice.processing_started_at < cutoff)
+            .all()
+        )
+        for invoice in stuck:
+            if invoice.retry_count >= MAX_PROCESSING_RETRIES:
+                logger.error(
+                    "Invoice %s stuck in processing since %s after %s retries - giving up.",
+                    invoice.id, invoice.processing_started_at, invoice.retry_count,
+                )
+                invoice.status = InvoiceStatus.OCR_FAILED.value
+            else:
+                logger.warning(
+                    "Invoice %s stuck in processing since %s - retrying (%s/%s).",
+                    invoice.id, invoice.processing_started_at, invoice.retry_count + 1, MAX_PROCESSING_RETRIES,
+                )
+                invoice.status = InvoiceStatus.UPLOADED.value
+                invoice.retry_count += 1
+                requeued.append(invoice.id)
+        db.commit()
+    finally:
+        db.close()
+    return requeued

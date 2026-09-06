@@ -38,10 +38,16 @@ class Invoice(Base):
     __tablename__ = "invoices"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
     original_filename: Mapped[str] = mapped_column(String)
     file_path: Mapped[str] = mapped_column(String)
     status: Mapped[str] = mapped_column(String, default=InvoiceStatus.UPLOADED.value)
+    # Kdy naposledy začalo zpracování na pozadí a kolikrát se už opakovalo -
+    # pohání watchdog v pipeline.py, který fakturu zaseklou v `processing`
+    # (pád procesu/výpadek sítě uprostřed OCR/LLM volání) po čase vrátí zpět
+    # ke zpracování, místo aby tam zůstala navždy (viz reap_stuck_invoices).
+    processing_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
     raw_ocr_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     supplier_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     invoice_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
@@ -61,7 +67,7 @@ class LineItem(Base):
     __tablename__ = "line_items"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id"))
+    invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id"), index=True)
     description: Mapped[str] = mapped_column(String)
     category: Mapped[str] = mapped_column(String, default="uncategorized")
     amount: Mapped[float] = mapped_column(Float, default=0.0)
