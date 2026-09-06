@@ -34,6 +34,26 @@ services:
         condition: service_healthy
     restart: always
 
+  backup:
+    image: postgres:15-alpine
+    container_name: invoice_backup
+    env_file:
+      - .env
+    environment:
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./scripts:/scripts:ro
+      - db_backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    # Denní pg_dump smyčka přímo v kontejneru - žádný cron na hostiteli
+    # není potřeba, záloha běží jako součást "docker compose up". Zálohy
+    # jsou lokální (na stejném droplet-u) - viz DEPLOYMENT.md pro doporučení
+    # kopírovat je i mimo droplet (např. DigitalOcean Spaces přes rclone).
+    entrypoint: ["sh", "-c", "while true; do sh /scripts/backup_db.sh; sleep 86400; done"]
+    restart: always
+
   frontend:
     build: ./frontend
     container_name: invoice_frontend
@@ -48,3 +68,4 @@ volumes:
   uploads_data:
   exports_data:
   excel_templates_data:
+  db_backups:

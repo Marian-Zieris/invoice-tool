@@ -36,12 +36,24 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
   Soubory: `app/rate_limit.py` (nový), `app/routers/auth.py`, `docker-compose.yml`,
   `docker-compose.override.yaml`.
 
-- [ ] **K3 — Žádné zálohování dat**
-  Plán: skript `scripts/backup_db.sh` (pg_dump + gzip, rotace starých záloh),
-  volitelně i zálohu `uploads/`. Spustitelný z cronu na produkčním droplet-u,
-  zdokumentovaný v deployment checklistu (vč. volitelného odesílání do
-  DigitalOcean Spaces přes `rclone`/`s3cmd`, protože k reálnému object storage
-  účtu nemám přístup).
+- [x] **K3 — Žádné zálohování dat**
+  Řešení: nová `backup` služba v `docker-compose.yml` (image `postgres:15-alpine`,
+  žádná nová závislost) běží ve smyčce a jednou denně spustí `scripts/backup_db.sh`
+  (`pg_dump | gzip` do named volume `db_backups`, rotace záloh starších než
+  `BACKUP_KEEP_DAYS`, default 14 dní). Přidán i `scripts/restore_db.sh` pro
+  obnovu. Běží automaticky jako součást `docker compose up` bez ručního cronu
+  na hostiteli - odpovídá SPEC §12.6 duchu "žádné ruční zásahy".
+  Ověřeno živě: spuštění `backup` služby vytvořilo `invoices_20260906_104333.sql.gz`,
+  reálně jsem ho obnovil do dočasné DB (`restore_test`) a ověřil, že zákaznický
+  účet (`zieris.marian@gmail.com`, id 8) tam sedí přesně jako v produkční DB -
+  tedy nejde jen o "soubor vznikl", ale o ověřený funkční restore.
+  Vědomé omezení: zálohy jsou zatím jen lokální na droplet-u (chrání proti
+  poškozené migraci/omylem smazaným datům, ne proti selhání celého disku/droplet-u)
+  - offsite kopírování (DigitalOcean Spaces + rclone) je zdokumentované jako
+  doporučený další krok v `DEPLOYMENT.md`, protože k reálnému Spaces účtu
+  nemám přístup a nechtěl jsem psát netestovaný kód, který "vypadá hotově".
+  Soubory: `docker-compose.yml`, `scripts/backup_db.sh` (nový),
+  `scripts/restore_db.sh` (nový).
 
 - [ ] **K4 — Chybí HTTPS pro produkci**
   Plán: přidat produkční Caddy reverse-proxy (automatický Let's Encrypt) jako
