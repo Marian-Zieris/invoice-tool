@@ -197,7 +197,19 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
   `test_upload_validation.py`), `.github/workflows/ci.yml` (nový),
   `pyproject.toml`, `app/main.py`.
 
-- [ ] N6 — `eval.py` na testovací sadu v `image/` (SPEC §12.2 kritérium)
+- [x] N6 — `eval.py` na testovací sadu v `image/` (SPEC §12.2 kritérium)
+  Řešení: `eval.py` v rootu projektu spustí `extract_text_from_file` (jen OCR
+  krok, žádné volání Groq/LLM - bez API nákladů, bez sítě) na celou sadu
+  `image/*.png` a ověří SPEC.md §12.2 kritérium č. 2 ("OCR reálně vrací
+  neprázdný text u >= 90 % testovací sady"), které do teď nešlo automatizovaně
+  ověřit vůbec (SPEC na `eval.py` odkazuje, ale nikdy neexistoval).
+  Ověřeno živě uvnitř kontejneru (`docker compose exec web python eval.py`)
+  na celé sadě 100 účtenek: **100/100 (100 %)** vrátilo neprázdný OCR text za
+  89.5s - kritérium je tedy nezávisle potvrzené, ne jen předpokládané.
+  Vědomě NENÍ zapojené do CI (`.github/workflows/ci.yml`) - běh přes celou
+  sadu trvá ~90s a je to diagnostický skript pro ruční spuštění, ne rychlý
+  gate na každý PR.
+  Soubor: `eval.py` (nový).
 
 ---
 
