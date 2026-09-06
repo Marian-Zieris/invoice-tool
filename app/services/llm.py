@@ -38,6 +38,12 @@ class InvoiceExtraction(BaseModel):
     supplier_name: Optional[str] = None
     invoice_date: Optional[str] = None
     currency: Optional[str] = "CZK"
+    # 0.0-1.0: jak jistý si model je měnou samotnou, ne částkami. Nízká hodnota
+    # typicky znamená "text neobsahoval žádnou stopu po měně, CZK je jen
+    # výchozí odhad" - bez tohohle pole zůstávala špatně určená měna neviditelná
+    # v review UI, protože confidence_score u položek se váže na popis/částku,
+    # ne na měnu (viz audit, nález D2 - IDR účtenka omylem jako "91 000 CZK").
+    currency_confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     total_amount: Optional[float] = None
     line_items: List[LineItemExtraction] = Field(default_factory=list)
     extraction_warning: Optional[str] = None
@@ -58,6 +64,7 @@ def _build_system_prompt(categories: List[str]) -> str:
         "supplier_name": "string nebo null",
         "invoice_date": "YYYY-MM-DD nebo null",
         "currency": "ISO 4217 kod meny (CZK, EUR, USD, IDR, ...)",
+        "currency_confidence": "0.0-1.0 - viz instrukce nize",
         "total_amount": "cislo nebo null",
         "line_items": [
             {
@@ -88,6 +95,9 @@ def _build_system_prompt(categories: List[str]) -> str:
         "Menu urcuj aktivne z textu - hledej symboly (Kc, Kč, $, €, Rp, Rs, £) i psane kody (CZK, EUR, USD, IDR). "
         "Teprve kdyz text neobsahuje vubec zadnou stopu po mene, pouzij CZK jako rozumny vychozi odhad "
         "(nikdy nevracej null u currency).\n"
+        "currency_confidence: 1.0 kdyz jsi menu nasel jako jasnou stopu v textu (symbol nebo kod). Pokud jsi "
+        "CZK pouzil jen jako vychozi odhad bez jakekoliv stopy v textu, nastav currency_confidence NIZKO (pod 0.4) "
+        "- tohle pole existuje presne pro tenhle pripad, aby uzivatel videl, ze mena je jen odhad, ne precteny udaj.\n"
         "DPH (amount_without_vat, vat_rate) vyplnuj VYHRADNE kdyz je doklad sam explicitne uvadi (napr. sloupce "
         "'zaklad dane'/'zaklad'/'bez DPH' a 'sazba'/'DPH%', nebo souhrnna tabulka 'Vycisleni DPH'). Spousta "
         "zivnostniku a mikrofirem NENI platci DPH a jejich doklady zadne DPH neobsahuji - v takovem pripade "

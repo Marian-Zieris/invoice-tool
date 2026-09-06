@@ -67,6 +67,7 @@ def _invoice_summary_payload(invoice: Invoice) -> dict:
         "invoice_date": invoice.invoice_date.isoformat() if invoice.invoice_date else None,
         "total_amount": invoice.total_amount,
         "currency": invoice.currency,
+        "currency_confidence": invoice.currency_confidence,
         "created_at": invoice.created_at.isoformat(),
         "extraction_warning": invoice.extraction_warning,
     }
@@ -114,6 +115,11 @@ def update_invoice(
     changes = payload.model_dump(exclude_unset=True)
     for field, value in changes.items():
         setattr(invoice, field, value)
+
+    if "currency" in changes:
+        # Zákazník měnu ručně potvrdil/opravil - nízká LLM jistota už dál
+        # neplatí, jinak by se varování v UI zobrazovalo dál i po opravě.
+        invoice.currency_confidence = 1.0
 
     if changes and invoice.status == InvoiceStatus.NEEDS_REVIEW.value:
         invoice.status = InvoiceStatus.REVIEWED.value
@@ -228,6 +234,9 @@ def merge_invoices(payload: MergeRequest, db: Session = Depends(get_db), current
         supplier_name=merged_supplier_name,
         invoice_date=next(iter(invoice_dates)) if len(invoice_dates) == 1 else None,
         currency=next(iter(currencies)),
+        # Nejnižší jistota ze zdrojových faktur - jedna nejistá měna mezi
+        # sloučenými doklady má zůstat vidět i po sloučení, ne se "spláchnout".
+        currency_confidence=min(invoice.currency_confidence for invoice in invoices),
         raw_ocr_text="\n\n---\n\n".join(ocr_texts) if ocr_texts else None,
         extraction_warning="\n".join(warnings) if warnings else None,
     )

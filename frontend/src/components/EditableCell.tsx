@@ -3,10 +3,17 @@ import { useState } from "react";
 interface EditableCellProps {
   value: string;
   onSave: (value: string) => void;
-  type?: "text" | "number";
+  type?: "text" | "number" | "date";
   align?: "left" | "right";
   monospace?: boolean;
   padding?: string;
+  /** Co se zobrazí v klidovém (needitovaném) stavu, když se má lišit od
+   * skutečné editovatelné hodnoty - typicky hezčí formát data nebo placeholder
+   * jako "Nerozpoznáno" pro prázdnou hodnotu, aniž by šel omylem uložit jako
+   * doslovný text. */
+  displayValue?: string;
+  placeholder?: string;
+  className?: string;
 }
 
 export function EditableCell({
@@ -16,6 +23,9 @@ export function EditableCell({
   align = "left",
   monospace = false,
   padding = "px-2 py-1",
+  displayValue,
+  placeholder,
+  className = "",
 }: EditableCellProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -40,6 +50,7 @@ export function EditableCell({
         type={type}
         step={type === "number" ? "0.01" : undefined}
         value={draft}
+        placeholder={placeholder}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={commit}
         onKeyDown={(event) => {
@@ -49,7 +60,7 @@ export function EditableCell({
             setEditing(false);
           }
         }}
-        className={`w-full rounded-md border border-accent bg-surface ${padding} text-[13.5px] text-ink outline-none ${alignClass} ${fontClass}`}
+        className={`w-full rounded-md border border-accent bg-surface ${padding} text-[13.5px] text-ink outline-none ${alignClass} ${fontClass} ${className}`}
       />
     );
   }
@@ -61,9 +72,9 @@ export function EditableCell({
         setDraft(value);
         setEditing(true);
       }}
-      className={`w-full rounded-md ${padding} transition-colors hover:bg-surface-2 ${alignClass} ${fontClass}`}
+      className={`w-full rounded-md ${padding} transition-colors hover:bg-surface-2 ${alignClass} ${fontClass} ${className}`}
     >
-      {value}
+      {displayValue ?? value}
     </button>
   );
 }

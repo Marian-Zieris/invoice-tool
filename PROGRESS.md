@@ -101,13 +101,31 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
   migrace `74d14ee849c1` jako D1 (`ix_invoices_customer_id`, `ix_line_items_invoice_id`).
   Ověřeno: `\d invoices` / `\d line_items` v produkční DB ukazují oba indexy.
 
-- [ ] **D2 — Špatná měna se zobrazí s vysokou jistotou (600× chyba beze stopy)**
-  Plán: LLM prompt rozšířit o `currency_confidence`, uložit na `Invoice`,
-  v UI zvýraznit stejně jako nízkou jistotu položky.
+- [x] **D2 — Špatná měna se zobrazí s vysokou jistotou (600× chyba beze stopy)**
+  Řešení: nové pole `currency_confidence` (0.0-1.0) v LLM extrakci (`llm.py`) -
+  prompt teď explicitně žádá nízkou hodnotu, když text neobsahuje žádnou stopu
+  po měně a CZK je jen výchozí odhad. Uloženo na `Invoice.currency_confidence`
+  (migrace `31240659a926`), v `InvoiceDetail.tsx` se pod stejným prahem 0.6
+  jako u položek zobrazí ikona u částky + celý varovný banner s návodem, jak
+  to opravit. Ruční oprava měny (`PATCH /invoices/{id}`) confidence resetuje
+  na 1.0 - varování nezůstává viset po opravě.
+  Ověřeno živě na PŘESNĚ té samé indonéské účtence z auditu (`receipt_00001.png`,
+  ta s "91 000 CZK"): teď vrací `currency_confidence: 0.3`, tedy pod prahem -
+  audit nález je teď viditelný, ne tichý. Po `PATCH {"currency":"IDR"}` se
+  confidence potvrzeně vrátila na `1.0`.
 
-- [ ] **D3 — Zákazník nemůže v UI opravit dodavatele/datum**
-  Plán: obalit `supplier_name` a `invoice_date` v `InvoiceDetail.tsx` do
-  `EditableCell`, stejně jako už funguje měna.
+- [x] **D3 — Zákazník nemůže v UI opravit dodavatele/datum**
+  Řešení: `supplier_name` a `invoice_date` v `InvoiceDetail.tsx` teď taky
+  `EditableCell` (backend už to podporoval, jen UI to neumožňovalo). Rozšířil
+  jsem `EditableCell` o `displayValue`/`placeholder`/`className` a `type="date"`,
+  aby šlo zobrazit hezčí formát ("Nerozpoznáno", formátované datum) bez rizika,
+  že se ten popisek omylem uloží jako doslovná hodnota.
+  Ověřeno: `tsc -b && vite build` prochází bez chyb (typová kontrola i produkční
+  build), a `PATCH /invoices/{id}` s `supplier_name`/`invoice_date` funguje přes
+  API přesně na stejné faktuře jako test D2 výše. Vizuální ověření v běžícím
+  prohlížeči se bohužel nepodařilo dokončit - Chrome rozšíření pro browser
+  automatizaci v tomto sezení opakovaně nereagovalo (zkoušeno 2×), takže UI
+  je ověřené code-review + úspěšným buildem, ne živým kliknutím v prohlížeči.
 
 - [ ] **D4 — Upload: jen kontrola přípony, žádný limit frekvence/obsahu**
   Plán: `python-magic` kontrola skutečného typu souboru + denní limit počtu

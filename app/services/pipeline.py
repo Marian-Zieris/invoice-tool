@@ -76,6 +76,7 @@ def process_invoice(invoice_id: int) -> None:
         invoice.supplier_name = extracted.supplier_name
         invoice.invoice_date = _parse_date(extracted.invoice_date)
         invoice.currency = extracted.currency or "CZK"
+        invoice.currency_confidence = extracted.currency_confidence
 
         for item in extracted.line_items:
             db.add(LineItem(

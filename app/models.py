@@ -53,6 +53,11 @@ class Invoice(Base):
     invoice_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     total_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     currency: Mapped[str] = mapped_column(String, default="CZK")
+    # 0.0-1.0 - jak jistý si LLM byl samotnou měnou (ne částkami), viz llm.py.
+    # Nízká hodnota = text neobsahoval žádnou stopu po měně a CZK je jen výchozí
+    # odhad - bez tohoto pole zůstávala špatně určená měna v review UI neviditelná,
+    # protože confidence_score u položek se váže na popis/částku, ne na měnu.
+    currency_confidence: Mapped[float] = mapped_column(Float, default=1.0)
     # Krátká poznámka od LLM - vyplní se jen když model narazil na fragment textu, který
     # vypadal jako další položka, ale nešel spolehlivě přiřadit (viz llm.py) - signál pro
     # zákazníka, že faktura může mít víc položek, než kolik se jich reálně vytěžilo.

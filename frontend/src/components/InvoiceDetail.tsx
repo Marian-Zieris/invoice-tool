@@ -74,14 +74,28 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
   return (
     <section className="min-h-0 min-w-0 flex-1 overflow-y-auto p-6 md:p-8">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-5">
-        <div>
-          <h2 className="m-0 mb-1 text-[22px] font-bold tracking-tight text-ink" style={{ textWrap: "balance" }}>
-            {invoice.supplier_name ?? "Nerozpoznáno"}
+        <div className="min-w-0">
+          <h2 className="m-0 mb-1" style={{ textWrap: "balance" }}>
+            <EditableCell
+              value={invoice.supplier_name ?? ""}
+              displayValue={invoice.supplier_name ?? "Nerozpoznáno"}
+              placeholder="Jméno dodavatele"
+              padding="px-0 py-0"
+              className="text-[22px] font-bold tracking-tight text-ink"
+              onSave={(value) => updateInvoice.mutate({ invoiceId: invoice.id, changes: { supplier_name: value } })}
+            />
           </h2>
           <div className="flex flex-wrap items-center gap-3.5 text-[13px] text-ink-muted">
             <StatusPill status={invoice.status} />
             <span>{invoice.original_filename}</span>
-            <span>{invoice.invoice_date ? formatDate(invoice.invoice_date) : formatDateTime(invoice.created_at)}</span>
+            <EditableCell
+              value={invoice.invoice_date ?? ""}
+              displayValue={invoice.invoice_date ? formatDate(invoice.invoice_date) : formatDateTime(invoice.created_at)}
+              type="date"
+              padding="px-0 py-0"
+              className="text-[13px] text-ink-muted"
+              onSave={(value) => updateInvoice.mutate({ invoiceId: invoice.id, changes: { invoice_date: value } })}
+            />
           </div>
         </div>
         {invoice.total_amount !== null && (
@@ -90,7 +104,10 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
               <span className="font-mono text-[26px] font-semibold tabular-nums text-ink">
                 {new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 0 }).format(invoice.total_amount)}
               </span>
-              <span className="w-10 text-[15px] font-medium text-ink-muted">
+              <span className="flex w-14 items-center justify-end gap-1 text-[15px] font-medium text-ink-muted">
+                {invoice.currency_confidence < LOW_CONFIDENCE_THRESHOLD && (
+                  <WarningIcon className="h-3.5 w-3.5 flex-none text-bad" />
+                )}
                 <EditableCell
                   value={invoice.currency}
                   align="right"
@@ -103,6 +120,17 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
           </div>
         )}
       </div>
+
+      {invoice.currency_confidence < LOW_CONFIDENCE_THRESHOLD && (
+        <div className="glass-panel mb-4 flex items-start gap-2.5 rounded-[16px] p-3.5 text-[12.5px] leading-relaxed text-ink-muted">
+          <WarningIcon className="mt-0.5 h-4 w-4 flex-none text-bad" />
+          <div>
+            <b className="text-ink">Měna {invoice.currency} je jen odhad.</b> Doklad neobsahoval jasnou stopu po
+            měně (symbol ani kód), zkontroluj prosím částky a měnu ručně - klikni na "{invoice.currency}" vpravo
+            nahoře a oprav ji, pokud nesedí.
+          </div>
+        </div>
+      )}
 
       {invoice.extraction_warning && (
         <div className="glass-panel mb-4 flex items-start gap-2.5 rounded-[16px] p-3.5 text-[12.5px] leading-relaxed text-ink-muted">

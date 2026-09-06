@@ -15,6 +15,7 @@ export interface InvoiceSummary {
   invoice_date: string | null;
   total_amount: number | null;
   currency: string;
+  currency_confidence: number;
   created_at: string;
   extraction_warning: string | null;
 }
