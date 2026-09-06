@@ -5,7 +5,7 @@ import { useDeleteInvoice } from "../hooks/useDeleteInvoice";
 import { useMergeInvoices } from "../hooks/useMergeInvoices";
 import { ApiError } from "../api/client";
 import { StatusPill } from "./StatusPill";
-import { ExportIcon, MergeIcon, TrashIcon } from "./icons";
+import { CheckIcon, CloseIcon, ExportIcon, MergeIcon, TrashIcon } from "./icons";
 
 interface InvoiceListProps {
   invoices: InvoiceSummary[];
@@ -42,6 +42,11 @@ export function InvoiceList({
   const deleteInvoice = useDeleteInvoice();
   const mergeInvoices = useMergeInvoices();
   const [mergeError, setMergeError] = useState<string | null>(null);
+  // Vlastní potvrzení místo window.confirm() - nativní dialog se v některých
+  // prohlížečích/rozšířeních chová nespolehlivě (tiše se potlačí a rovnou
+  // vrátí false, takže klik na koš vypadá, že "nic nedělá").
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function handleMerge() {
     setMergeError(null);
@@ -86,6 +91,7 @@ export function InvoiceList({
           </button>
         </div>
         {mergeError && <p className="text-[12px] text-bad">{mergeError}</p>}
+        {deleteError && <p className="text-[12px] text-bad">{deleteError}</p>}
       </div>
 
       <div className="flex flex-col gap-1.5 overflow-y-auto px-3 pb-4">
@@ -102,7 +108,10 @@ export function InvoiceList({
           return (
             <div
               key={invoice.id}
-              onClick={() => onSelect(invoice.id)}
+              onClick={() => {
+                setConfirmingDeleteId(null);
+                onSelect(invoice.id);
+              }}
               role="button"
               tabIndex={0}
               onKeyDown={(event) => {
@@ -133,20 +142,50 @@ export function InvoiceList({
                   </span>
                 </div>
               </div>
-              <button
-                type="button"
-                title="Smazat fakturu"
-                disabled={deleteInvoice.isPending}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (window.confirm(`Opravdu smazat fakturu "${invoice.original_filename}"? Tuto akci nelze vrátit zpět.`)) {
-                    deleteInvoice.mutate(invoice.id, { onSuccess: () => onDeleted(invoice.id) });
-                  }
-                }}
-                className="flex flex-none items-center justify-center self-center rounded-[8px] p-1.5 text-ink-muted opacity-0 transition-opacity hover:bg-bad-soft hover:text-bad group-hover:opacity-100 disabled:opacity-50"
-              >
-                <TrashIcon className="h-3.5 w-3.5" />
-              </button>
+              {confirmingDeleteId === invoice.id ? (
+                <div className="flex flex-none items-center gap-1 self-center" onClick={(event) => event.stopPropagation()}>
+                  <span className="text-[11.5px] font-medium text-ink-muted">Smazat?</span>
+                  <button
+                    type="button"
+                    title="Ano, smazat"
+                    disabled={deleteInvoice.isPending}
+                    onClick={() => {
+                      setDeleteError(null);
+                      deleteInvoice.mutate(invoice.id, {
+                        onSuccess: () => {
+                          setConfirmingDeleteId(null);
+                          onDeleted(invoice.id);
+                        },
+                        onError: (err) => setDeleteError(err instanceof ApiError ? err.message : "Smazání se nezdařilo."),
+                      });
+                    }}
+                    className="flex items-center justify-center rounded-[8px] bg-bad-soft p-1.5 text-bad transition-colors hover:brightness-95 disabled:opacity-50"
+                  >
+                    <CheckIcon className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    title="Zrušit"
+                    disabled={deleteInvoice.isPending}
+                    onClick={() => setConfirmingDeleteId(null)}
+                    className="flex items-center justify-center rounded-[8px] p-1.5 text-ink-muted transition-colors hover:bg-surface-2 disabled:opacity-50"
+                  >
+                    <CloseIcon className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  title="Smazat fakturu"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setConfirmingDeleteId(invoice.id);
+                  }}
+                  className="flex flex-none items-center justify-center self-center rounded-[8px] p-1.5 text-ink-muted opacity-0 transition-opacity hover:bg-bad-soft hover:text-bad group-hover:opacity-100 disabled:opacity-50"
+                >
+                  <TrashIcon className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           );
         })}

@@ -283,6 +283,28 @@ vyřešeno stejným postupem (plán → oprava → živé ověření → test �
   nahráními téhož typu dokladu předvídatelnější, bez rizika/nákladu.
   Soubor: `app/services/llm.py`.
 
+## Zpětná vazba od zákazníka po nasazení (třetí kolo)
+
+- [x] **"Nefunguje delete"** (koš u faktury v seznamu)
+  Backend endpoint (`DELETE /invoices/{id}`) jsem otestoval přímo přes API a
+  fungoval bez problémů - příčina je na frontendu. Tlačítko používalo nativní
+  `window.confirm()`, který se v některých prohlížečích/rozšířeních chová
+  nespolehlivě (umí se tiše potlačit a rovnou vrátit `false`, takže klik na
+  koš vypadá, že "nic nedělá" - appka na to nemá žádnou zpětnou vazbu, ať
+  uživatel neví, jestli se něco pokazilo nebo jestli jen zapomněl kliknout).
+  Nešlo mi to naživo přehrát v prohlížeči (Chrome automatizace v tomto
+  sezení stále nereaguje), takže jde o nejpravděpodobnější vysvětlení
+  ověřené code-review, ne o potvrzenou root cause.
+  Řešení: nahradil jsem `window.confirm()` vlastním inline potvrzením přímo
+  v řádku faktury (klik na koš → "Smazat? ✓/✕" místo prohlížečového dialogu),
+  navíc s viditelnou chybovou hláškou, pokud by mazání i tak selhalo (dřív
+  chyba mizela beze stopy). Robustnější řešení nezávislé na chování
+  konkrétního prohlížeče/rozšíření a lépe zapadá do vizuálního stylu appky
+  než nativní dialog.
+  Ověřeno: TypeScript + produkční Vite build bez chyb, `18/18` testů dál
+  zelených (backend endpoint, kterého se tahle oprava netýká, beze změny).
+  Soubory: `frontend/src/components/InvoiceList.tsx`, `icons.tsx`.
+
 ## Bonus drobnost nalezená při závěrečné regresi
 
 - [x] **Float precision artefakt v `total_amount`** (např. `343.50800000000004`
