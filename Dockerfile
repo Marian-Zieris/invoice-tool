@@ -35,10 +35,18 @@ COPY . .
 
 RUN chmod +x /app/entrypoint.sh
 
-# Neběžet jako root
+# Neběžet jako root - appuser vlastní kód aplikace. Runtime adresáře pro
+# uploads/exports/excel_templates se vytváří a chown-ují znovu v entrypoint.sh
+# při každém startu: jde o cíle named volumes (viz docker-compose.yml), které
+# Docker při prvním připojení prázdného volume vytvoří jako root, pokud na té
+# cestě v obrazu předtím nic nebylo (PROGRESS.md K1) - spoléhat jen na tenhle
+# build-time chown by pro named volumes nefungovalo spolehlivě.
 RUN useradd -m appuser && chown -R appuser:appuser /app
-USER appuser
+RUN mkdir -p /app/uploads /app/exports /app/excel_templates && \
+    chown -R appuser:appuser /app/uploads /app/exports /app/excel_templates
 
+# Kontejner startuje jako root - entrypoint.sh opraví vlastnictví volumes a
+# pak přes setpriv trvale přepne na appuser, než spustí aplikaci samotnou.
 EXPOSE 8000
 
 ENTRYPOINT ["/app/entrypoint.sh"]

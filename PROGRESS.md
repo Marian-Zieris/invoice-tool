@@ -7,11 +7,21 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
 
 ## KRITICKÉ (blokuje prodej)
 
-- [ ] **K1 — Docker volumes vlastněné rootem (upload/export/šablony padají na 500)**
-  Plán: v Dockerfile vytvořit `/app/uploads`, `/app/exports`, `/app/excel_templates`
-  a `chown appuser:appuser` PŘED `USER appuser`, aby Docker při prvním připojení
-  named volume zkopíroval správné vlastnictví. Ověřit `docker compose up --build`
-  od nuly (smazat existující volumes) + reálný upload.
+- [x] **K1 — Docker volumes vlastněné rootem (upload/export/šablony padají na 500)**
+  Řešení: build-time `chown` na `/app` samo o sobě nestačí pro named volumes
+  (Docker při prvním připojení prázdného volume vytvoří mountpoint jako root,
+  build-time vlastnictví nepřevezme spolehlivě). Místo toho kontejner teď
+  startuje jako root, `entrypoint.sh` při KAŽDÉM startu udělá `mkdir -p` +
+  `chown -R appuser:appuser` na `uploads/exports/excel_templates` (idempotentní,
+  opraví i už existující špatně vlastněné volumes) a pak přes `setpriv
+  --reuid=appuser --regid=appuser --init-groups` natrvalo přepne na appuser
+  pro `alembic upgrade head` i samotný uvicorn proces. `USER appuser` v
+  Dockerfile odstraněn (dřív bránil entrypointu dělat cokoliv jako root).
+  Ověřeno: `docker compose down` + smazání volumes + `up --build` od nuly →
+  `docker exec ... ls -la` ukazuje `appuser:appuser` na všech třech adresářích,
+  `docker top` potvrzuje, že uvicorn i migrace běží pod uid 1000, ne 0. Plné
+  E2E: upload skutečné účtenky → `needs_review` s daty → export → validní
+  `.xlsx` (potvrzeno `file` utilitou). Soubory: `Dockerfile`, `entrypoint.sh`.
 
 - [ ] **K2 — Bez rate limitu na `/auth/login` (brute force)**
   Plán: jednoduchý in-memory per-IP+email sliding-window limiter (bez Redis,
