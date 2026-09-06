@@ -65,6 +65,28 @@ def test_valid_png_is_accepted(client, admin_headers):
     assert "invoice_id" in result
 
 
+def test_duplicate_upload_is_flagged_but_not_blocked(client, admin_headers):
+    token = _register_and_login(client, admin_headers)
+
+    first = client.post(
+        "/invoices/upload",
+        headers=_auth_header(token),
+        files={"files": ("receipt.png", io.BytesIO(_MINIMAL_PNG), "image/png")},
+    )
+    first_id = first.json()["data"][0]["invoice_id"]
+
+    second = client.post(
+        "/invoices/upload",
+        headers=_auth_header(token),
+        files={"files": ("receipt.png", io.BytesIO(_MINIMAL_PNG), "image/png")},
+    )
+    result = second.json()["data"][0]
+    # Nezablokováno - dostane vlastní invoice_id a status "uploaded" jako
+    # jakýkoliv jiný soubor, jen navíc ukazuje, čeho je duplicitou.
+    assert result["status"] == "uploaded"
+    assert result["duplicate_of_invoice_id"] == first_id
+
+
 def test_daily_upload_quota_is_enforced(client, admin_headers, monkeypatch, db_session):
     monkeypatch.setattr("app.routers.upload.MAX_UPLOADS_PER_DAY", 1)
     token = _register_and_login(client, admin_headers)

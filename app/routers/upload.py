@@ -1,3 +1,4 @@
+import hashlib
 import os
 import uuid
 from datetime import datetime, timedelta
@@ -103,10 +104,21 @@ async def upload_invoices(
         with open(file_path, "wb") as f:
             f.write(contents)
 
+        content_hash = hashlib.sha256(contents).hexdigest()
+        # Nic se neblokuje - zákazník může chtít nahrát stejný scan záměrně
+        # znovu (např. po smazání omylem založené faktury) - jen upozorníme.
+        duplicate_of = (
+            db.query(Invoice.id)
+            .filter(Invoice.customer_id == current_customer.id, Invoice.content_hash == content_hash)
+            .order_by(Invoice.id.asc())
+            .first()
+        )
+
         invoice = Invoice(
             customer_id=current_customer.id,
             original_filename=file.filename,
             file_path=file_path,
+            content_hash=content_hash,
         )
         db.add(invoice)
         db.commit()
@@ -115,10 +127,13 @@ async def upload_invoices(
         background_tasks.add_task(process_invoice, invoice.id)
         uploads_last_24h += 1
 
-        created.append({
+        entry = {
             "invoice_id": invoice.id,
             "original_filename": invoice.original_filename,
             "status": invoice.status,
-        })
+        }
+        if duplicate_of is not None:
+            entry["duplicate_of_invoice_id"] = duplicate_of[0]
+        created.append(entry)
 
     return api_success(created, "Files uploaded, processing started in the background.")

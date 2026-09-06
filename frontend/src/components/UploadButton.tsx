@@ -1,14 +1,26 @@
 import { useRef, useState } from "react";
-import { useUploadInvoices } from "../hooks/useUploadInvoices";
+import { useUploadInvoices, type UploadResultEntry } from "../hooks/useUploadInvoices";
 import { ApiError } from "../api/client";
 import { UploadIcon } from "./icons";
 
 const ACCEPTED_EXTENSIONS = ".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp";
 
+function summarizeNotices(results: UploadResultEntry[]): string | null {
+  const notices = results
+    .map((entry) => {
+      if (entry.status === "rejected") return `${entry.original_filename}: ${entry.reason ?? "odmítnuto"}`;
+      if (entry.duplicate_of_invoice_id) return `${entry.original_filename}: možná duplicita (už nahráno dřív)`;
+      return null;
+    })
+    .filter((notice): notice is string => notice !== null);
+  return notices.length > 0 ? notices.join("; ") : null;
+}
+
 export function UploadButton() {
   const inputRef = useRef<HTMLInputElement>(null);
   const upload = useUploadInvoices();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   return (
     <div className="flex flex-col items-end gap-1.5">
@@ -26,7 +38,9 @@ export function UploadButton() {
           const files = event.target.files ? Array.from(event.target.files) : [];
           if (files.length > 0) {
             setError(null);
+            setNotice(null);
             upload.mutate(files, {
+              onSuccess: (results) => setNotice(summarizeNotices(results)),
               onError: (err) => setError(err instanceof ApiError ? err.message : "Nahrání se nezdařilo."),
             });
           }
@@ -43,6 +57,7 @@ export function UploadButton() {
         {upload.isPending ? "Nahrávám…" : "Nahrát faktury"}
       </button>
       {error && <p className="max-w-xs text-right text-[12px] text-bad">{error}</p>}
+      {notice && <p className="max-w-xs text-right text-[12px] text-ink-muted">{notice}</p>}
     </div>
   );
 }

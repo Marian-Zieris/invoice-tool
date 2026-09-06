@@ -169,8 +169,20 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
 - [x] N1 — `os.path.basename()` na nahrávaný filename (hotovo v rámci D4)
 - [x] N2 — `/health` ověří i spojení na DB (hotovo mimochodem při D1 - `app/main.py`,
   `SELECT 1` přes vlastní DB session, `success:false`/`status:degraded` při výpadku)
-- [ ] N3 — Detekce duplicitního uploadu (hash souboru)
-- [ ] N4 — Drag & drop upload
+- [x] N3 — Detekce duplicitního uploadu (hash souboru)
+  Řešení: SHA-256 obsahu souboru do nového `Invoice.content_hash` (migrace
+  `26c2f3ca067c`). Rozumný default: NEBLOKUJE upload (zákazník může chtít
+  stejný scan nahrát znovu záměrně, např. po smazání omylem založené faktury) -
+  jen v odpovědi přidá `duplicate_of_invoice_id`, frontend (`UploadButton.tsx`)
+  to zobrazí jako informační poznámku pod tlačítkem.
+  Ověřeno živě: 2× upload stejného souboru - druhý dostal vlastní `invoice_id`
+  (nezablokováno) a `duplicate_of_invoice_id` ukazující na první. Přidán i
+  pytest test (`test_duplicate_upload_is_flagged_but_not_blocked`) - 16/16 v CI sadě zelených.
+  Soubory: `app/models.py`, `alembic/versions/26c2f3ca067c_*.py` (nový),
+  `app/routers/upload.py`, `frontend/src/hooks/useUploadInvoices.ts`,
+  `frontend/src/components/UploadButton.tsx`, `tests/test_upload_validation.py`.
+
+- [ ] N4 — Drag & drop upload (nedoděláno, viz finální report - doporučení do budoucna)
 - [x] N5 — Základní automatizované testy (pytest) + GitHub Actions CI
   Řešení: `tests/` pokrývá přesně to, co tenhle audit opravoval a kde by tichá
   regrese příště bolela nejvíc - auth + rate limiting (K2), multi-tenant

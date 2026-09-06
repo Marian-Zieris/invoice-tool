@@ -41,6 +41,10 @@ class Invoice(Base):
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
     original_filename: Mapped[str] = mapped_column(String)
     file_path: Mapped[str] = mapped_column(String)
+    # SHA-256 obsahu souboru - umožňuje upload.py upozornit na pravděpodobný
+    # duplicitní upload (stejný soubor nahraný podruhé), aniž by se cokoliv
+    # blokovalo - zákazník může chtít nahrát stejný scan znovu záměrně.
+    content_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     status: Mapped[str] = mapped_column(String, default=InvoiceStatus.UPLOADED.value)
     # Kdy naposledy začalo zpracování na pozadí a kolikrát se už opakovalo -
     # pohání watchdog v pipeline.py, který fakturu zaseklou v `processing`
