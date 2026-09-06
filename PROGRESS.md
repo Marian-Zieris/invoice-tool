@@ -186,3 +186,30 @@ odmítnuto na uploadu; IDOR (cizí zákazník na cizí fakturu) → `404`. Vše
 prošlo beze změny chování oproti stavu před opravami - kritické opravy
 nic nerozbily. Testovací zákazníci/faktury po testu smazáni přes
 `DELETE /customers/{id}` (cascade přes ORM, ne přímé SQL).
+
+**Po dokončení DŮLEŽITÉ sekce (D1–D6)** — širší regresní test se 2 zákazníky
+najednou (přesně scénář "více zákazníků/šablon" ze zadání):
+- Zákazník A (`category_rules: materiál/nářadí/doprava`) a B (`kancelářské
+  potřeby/software`) - upload u obou proběhl a extrakce použila SPRÁVNÉ,
+  navzájem odlišné kategorie každého zákazníka (ověřeno v datech položek).
+- Edge cases znovu: prázdný soubor teď `python-magic` odmítne SYNCHRONNĚ při
+  uploadu (`detected: application/x-empty`) místo dřívějšího asynchronního
+  `ocr_failed` po zpracování - vědomá a correctní změna chování z D4, ne
+  regrese (rychlejší zpětná vazba uživateli, stejný výsledek "tohle nejde
+  zpracovat"). Špatná přípona i podvržený obsah (.txt jako .pdf) → odmítnuto.
+- Oprava položky (`PATCH /items/{id}`) přepočítala `total_amount`, export
+  vrátil validní `.xlsx` s opravenou hodnotou.
+- **Per-customer Excel šablona** (admin `POST /customers/{id}/template`):
+  zákazníkovi A nahraná vlastní šablona s mapováním sloupců - jeho export
+  skutečně použil TU šablonu se správnými hlavičkami a daty na správných
+  pozicích; zákazník B (bez šablony) dostal beze změny výchozí report formát.
+  Potvrzuje, že per-customer konfigurace (kategorie i šablony) funguje správně
+  i po všech provedených změnách schématu/pipeline.
+- IDOR znovu čistý, rate limiter na loginu znovu funkční (5×401 → 429).
+- Jeden pozorovaný (ne nový, už dřív existující) jev: složitější účtenka se
+  slevou/servisním poplatkem u zákazníka B skončila s `total_amount`
+  vyplněným, ale bez jednotlivých položek (LLM nebyl schopný rozpad spolehlivě
+  přiřadit) - to je existující, spec-souladné chování (`pipeline.py` fallback
+  větev "nic se nevytěžilo jako položka"), ne bug způsobený mými změnami.
+  Nešlo o citelnou regresi, appka nic nepředstírala a nepadla.
+Testovací data opět kompletně smazána po testu.
