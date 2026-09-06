@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.dependencies import require_admin
 from app.models import Customer
+from app.rate_limit import client_ip, record_failed_attempt, reset_attempts, seconds_until_retry
 from app.security import create_access_token, hash_password, verify_password
 from app.utils import api_error, api_success
 
@@ -55,11 +56,23 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login")
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
+    ip = client_ip(request.headers.get("x-forwarded-for"), request.client.host if request.client else None)
+
+    retry_after = seconds_until_retry(ip, payload.email)
+    if retry_after is not None:
+        return JSONResponse(
+            status_code=429,
+            content=api_error("Too many login attempts. Please try again later.", "rate_limited"),
+            headers={"Retry-After": str(retry_after)},
+        )
+
     customer = db.query(Customer).filter(Customer.email == payload.email).first()
     if customer is None or not verify_password(payload.password, customer.password_hash):
+        record_failed_attempt(ip, payload.email)
         return JSONResponse(status_code=401, content=api_error("Invalid email or password.", "invalid_credentials"))
 
+    reset_attempts(ip, payload.email)
     token = create_access_token(customer.id)
     return api_success({
         "access_token": token,

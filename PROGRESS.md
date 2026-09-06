@@ -23,9 +23,18 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
   E2E: upload skutečné účtenky → `needs_review` s daty → export → validní
   `.xlsx` (potvrzeno `file` utilitou). Soubory: `Dockerfile`, `entrypoint.sh`.
 
-- [ ] **K2 — Bez rate limitu na `/auth/login` (brute force)**
-  Plán: jednoduchý in-memory per-IP+email sliding-window limiter (bez Redis,
-  odpovídá velikosti appky) na `/auth/login`. Zalogovat i zamítnuté pokusy.
+- [x] **K2 — Bez rate limitu na `/auth/login` (brute force)**
+  Řešení: `app/rate_limit.py` - in-memory limiter (5 pokusů/5 min na kombinaci
+  IP+email, 20/5 min na IP napříč emaily proti credential stuffingu), `/auth/login`
+  vrací `429` + `Retry-After` po překročení. Úspěšný login počítadlo pro danou
+  kombinaci smaže, neúspěšný ho navyšuje. Bonus nález při implementaci: backend
+  port `8000` byl v produkční `docker-compose.yml` publikovaný přímo ven, což by
+  šlo použít k obejití nginx a PODVRŽENÍ `X-Forwarded-For` (limiter by pak počítal
+  útočníkovi jinou IP, než jakou skutečně má) - port přesunut do
+  `docker-compose.override.yaml` (jen pro lokální dev), produkce ho už nepublikuje.
+  Ověřeno živě: 5× špatné heslo → `401`, 6.-8. pokus → `429 rate_limited`.
+  Soubory: `app/rate_limit.py` (nový), `app/routers/auth.py`, `docker-compose.yml`,
+  `docker-compose.override.yaml`.
 
 - [ ] **K3 — Žádné zálohování dat**
   Plán: skript `scripts/backup_db.sh` (pg_dump + gzip, rotace starých záloh),

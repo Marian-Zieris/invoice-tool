@@ -17,8 +17,12 @@ services:
     build: .
     container_name: invoice_web
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-    ports:
-      - "8000:8000"
+    # Žádný "ports" mapping záměrně - v produkci smí na backend chodit jen
+    # frontend kontejner přes interní docker síť (nginx tam proxy_pass-uje
+    # na "web:8000"). Publikovaný port 8000 by šel použít k obejití nginx a
+    # podvržení X-Forwarded-For pro rate limiter (viz app/rate_limit.py) i
+    # k přímému volání API bez HTTPS, i když appka jinak běží jen na 443.
+    # Pro lokální vývoj/curl je "8000:8000" v docker-compose.override.yaml.
     env_file:
       - .env
     volumes:
