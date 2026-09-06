@@ -142,7 +142,7 @@ async def upload_customer_template(
         if not file.filename or not file.filename.lower().endswith((".xlsx", ".xls")):
             return JSONResponse(status_code=400, content=api_error("Only Excel templates are allowed (.xlsx, .xls).", "invalid_template"))
 
-        safe_name = f"{uuid.uuid4()}_{file.filename}"
+        safe_name = f"{uuid.uuid4()}_{os.path.basename(file.filename)}"
         file_path = os.path.join(EXCEL_TEMPLATES_DIR, safe_name)
         content = await file.read()
         with open(file_path, "wb") as target:

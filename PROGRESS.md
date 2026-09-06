@@ -127,9 +127,19 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
   automatizaci v tomto sezení opakovaně nereagovalo (zkoušeno 2×), takže UI
   je ověřené code-review + úspěšným buildem, ne živým kliknutím v prohlížeči.
 
-- [ ] **D4 — Upload: jen kontrola přípony, žádný limit frekvence/obsahu**
-  Plán: `python-magic` kontrola skutečného typu souboru + denní limit počtu
-  uploadů na zákazníka.
+- [x] **D4 — Upload: jen kontrola přípony, žádný limit frekvence/obsahu**
+  Řešení: `python-magic` (+ `libmagic1` v Dockerfile) porovná skutečný obsah
+  souboru (magic bytes) s deklarovanou příponou, ne jen s tím, co říká
+  Content-Type/přípona - a `MAX_UPLOADS_PER_DAY` (default 300) omezuje počet
+  nahraných souborů na zákazníka za 24h přes `Invoice.created_at`.
+  Mimochodem opraveno i N1 (`os.path.basename()` na filename v `upload.py` i
+  `customers.py` - viz audit, defense-in-depth i když dřív prakticky nešlo zneužít).
+  Ověřeno živě: PNG přejmenovaný na `.pdf` → odmítnuto (`detected: image/png`);
+  čistý text jako `.pdf` → odmítnuto (`detected: text/plain`, dřív by tohle
+  prošlo); s `MAX_UPLOADS_PER_DAY=2` dočasně nastaveným přes `.env` - 1. soubor
+  prošel, 2. a 3. v tom samém requestu správně odmítnuty s jasným důvodem.
+  Soubory: `app/routers/upload.py`, `app/routers/customers.py`, `Dockerfile`,
+  `pyproject.toml`, `.env.example`.
 
 - [ ] **D6 — Bezpečnostní položky nalezené navíc při opravách**
   (doplním průběžně, pokud narazím — appka se prochází podruhé cíleně na
@@ -137,7 +147,7 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
 
 ## NICE-TO-HAVE (udělám, pokud zbyde prostor)
 
-- [ ] N1 — `os.path.basename()` na nahrávaný filename (defense-in-depth)
+- [x] N1 — `os.path.basename()` na nahrávaný filename (hotovo v rámci D4)
 - [x] N2 — `/health` ověří i spojení na DB (hotovo mimochodem při D1 - `app/main.py`,
   `SELECT 1` přes vlastní DB session, `success:false`/`status:degraded` při výpadku)
 - [ ] N3 — Detekce duplicitního uploadu (hash souboru)
