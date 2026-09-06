@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Testy běží uvnitř stejného image, který jde do produkce (viz
+      # Dockerfile) - žádné riziko, že CI projde na jiné sadě systémových
+      # závislostí (Tesseract, libmagic, ...), než jaká je reálně nasazená.
+      - name: Build the app image
+        run: docker build -t invoice-web-ci .
+
+      - name: Run tests
+        run: |
+          docker run --rm \
+            -e SECRET_KEY=ci-test-secret \
+            -e ADMIN_API_KEY=ci-test-admin-key \
+            -e GROQ_KEY=ci-test-groq-key-unused \
+            -e DATABASE_URL=sqlite:////tmp/test_invoice_tool.db \
+            --entrypoint sh \
+            invoice-web-ci \
+            -c "pip install --quiet pytest httpx && python -m pytest tests/ -v"

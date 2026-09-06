@@ -171,7 +171,32 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
   `SELECT 1` přes vlastní DB session, `success:false`/`status:degraded` při výpadku)
 - [ ] N3 — Detekce duplicitního uploadu (hash souboru)
 - [ ] N4 — Drag & drop upload
-- [ ] N5 — Základní automatizované testy (pytest) + GitHub Actions CI
+- [x] N5 — Základní automatizované testy (pytest) + GitHub Actions CI
+  Řešení: `tests/` pokrývá přesně to, co tenhle audit opravoval a kde by tichá
+  regrese příště bolela nejvíc - auth + rate limiting (K2), multi-tenant
+  izolace (IDOR, aktivně testováno v auditu), upload validace (D4, včetně
+  přesně toho scénáře z auditu - .txt přejmenovaný na .pdf). OCR/LLM se v
+  testech nevolá (`process_invoice` je pro test klienta monkeypatchnutý na
+  no-op) - testy míří na validaci/autorizaci, ne na přesnost extrakce, a
+  neběží proti reálnému Groq API ani Tesseractu. Testovací DB je SQLite
+  soubor (ne produkční Postgres) - pro test fixtures to stačí a nepotřebuje to
+  žádnou infrastrukturu navíc.
+  `.github/workflows/ci.yml` staví STEJNÝ Dockerfile, co jde do produkce, a
+  pytest pouští uvnitř něj (`--entrypoint sh`, SQLite místo Postgres) - žádné
+  riziko, že CI běží na jiné sadě systémových závislostí (Tesseract, libmagic)
+  než produkce. `pytest`/`httpx` jsou v `pyproject.toml` jako `[project.optional-dependencies].dev`,
+  takže produkční image (`uv pip install --system -r pyproject.toml`) se o
+  ně nezvětší.
+  Mimochodem opraveno: `@app.on_event("startup")` (deprecated) nahrazeno
+  moderním `lifespan` context managerem - stejná funkce (watchdog task),
+  žádný deprecation warning navíc, ověřeno živě že appka dál startuje stejně.
+  Ověřeno: `docker build` + spuštění `pytest tests/ -v` uvnitř zbuild-ované
+  image → 15/15 testů zelených. Živý dev stack po refaktoru lifespan restartován
+  a `/health` dál vrací `200`.
+  Soubory: `tests/` (nový - `conftest.py`, `test_auth.py`, `test_authorization.py`,
+  `test_upload_validation.py`), `.github/workflows/ci.yml` (nový),
+  `pyproject.toml`, `app/main.py`.
+
 - [ ] N6 — `eval.py` na testovací sadu v `image/` (SPEC §12.2 kritérium)
 
 ---

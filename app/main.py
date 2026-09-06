@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from sqlalchemy import text
@@ -12,14 +13,6 @@ from app.services.pipeline import process_invoice, reap_stuck_invoices
 logger = logging.getLogger(__name__)
 
 WATCHDOG_INTERVAL_SECONDS = int(os.environ.get("WATCHDOG_INTERVAL_SECONDS", "120"))
-
-app = FastAPI(title="Invoice OCR Tool")
-
-app.include_router(auth.router)
-app.include_router(customers.router)
-app.include_router(upload.router)
-app.include_router(invoices.router)
-app.include_router(me.router)
 
 
 async def _watchdog_loop() -> None:
@@ -37,9 +30,22 @@ async def _watchdog_loop() -> None:
         await asyncio.sleep(WATCHDOG_INTERVAL_SECONDS)
 
 
-@app.on_event("startup")
-async def _start_watchdog() -> None:
-    asyncio.create_task(_watchdog_loop())
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    watchdog_task = asyncio.create_task(_watchdog_loop())
+    try:
+        yield
+    finally:
+        watchdog_task.cancel()
+
+
+app = FastAPI(title="Invoice OCR Tool", lifespan=_lifespan)
+
+app.include_router(auth.router)
+app.include_router(customers.router)
+app.include_router(upload.router)
+app.include_router(invoices.router)
+app.include_router(me.router)
 
 
 @app.get("/health")
