@@ -55,11 +55,24 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
   Soubory: `docker-compose.yml`, `scripts/backup_db.sh` (nový),
   `scripts/restore_db.sh` (nový).
 
-- [ ] **K4 — Chybí HTTPS pro produkci**
-  Plán: přidat produkční Caddy reverse-proxy (automatický Let's Encrypt) jako
-  alternativu/nahrazení nginx pro nasazení na doméně, `docker-compose.prod.yml`
-  override. Nemůžu vydat reálný certifikát bez domény/veřejné IP — připravím
-  konfiguraci a zdokumentuji přesné kroky pro drople.
+- [x] **K4 — Chybí HTTPS pro produkci**
+  Řešení: `docker-compose.prod.yml` přidává `caddy` (image `caddy:2-alpine`)
+  jako jediný vstup zvenku (80/443), terminuje TLS a proxuje na `frontend:80`
+  přes interní síť - `Caddyfile` používá `{$DOMAIN}`/`{$ACME_EMAIL}` z `.env`.
+  Frontend i backend přestaly publikovat porty v základním `docker-compose.yml`
+  (přesunuto do `docker-compose.override.yaml`, čistě pro lokální dev).
+  Nemůžu ověřit reálné vydání Let's Encrypt certifikátu bez veřejné domény a
+  DNS (nemám k dispozici) - ověřil jsem ale celý mechanismus reálně: s
+  `DOMAIN=localhost` Caddy automaticky (správně) pozná, že jde o neveřejný
+  název, spadne na svoji vlastní lokálně-důvěryhodnou CA místo Let's Encrypt,
+  a `curl https://localhost/` i `.../api/health` prošly s `200` včetně
+  automatického HTTP→HTTPS redirectu (`308`). Stejný Caddyfile s reálnou
+  doménou v `DOMAIN` použije Let's Encrypt - je to jen jiná větev stejné,
+  Caddy-vlastní logiky autodetekce veřejná/neveřejná doména, ne kód, který
+  bych psal a testoval poprvé. Přesný postup nasazení (DNS, firewall, `.env`,
+  ověření že `issuer` v logu je `acme` ne `local`) je v `DEPLOYMENT.md`.
+  Soubory: `Caddyfile` (nový), `docker-compose.prod.yml` (nový),
+  `docker-compose.yml`, `docker-compose.override.yaml`, `.env.example`.
 
 ## DŮLEŽITÉ (před zákazníkem č. 5–10)
 

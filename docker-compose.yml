@@ -57,8 +57,9 @@ services:
   frontend:
     build: ./frontend
     container_name: invoice_frontend
-    ports:
-      - "5173:80"
+    # Žádný "ports" mapping záměrně - v produkci je jediný vstup zvenku Caddy
+    # (docker-compose.prod.yml), který terminuje HTTPS a proxuje sem přes
+    # interní síť. Pro lokální vývoj je "5173:80" v docker-compose.override.yaml.
     depends_on:
       - web
     restart: always

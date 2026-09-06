@@ -1,0 +1,14 @@
+{
+	# Jen nastaví kontaktní e-mail pro Let's Encrypt - nevynucuje ho jako
+	# issuera. Caddy sám pozná veřejnou doménu vs. "localhost"/interní název:
+	# u {$DOMAIN} nastaveného na skutečnou doménu použije Let's Encrypt (ACME,
+	# vyžaduje DNS mířící na tenhle droplet + otevřené 80/443), u "localhost"
+	# automaticky spadne na svoji vlastní lokální CA - takhle jde celý řetěz
+	# (TLS terminace + proxy na frontend) ověřit i bez veřejné domény.
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy frontend:80
+}
