@@ -225,6 +225,16 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
 
 ---
 
+## Bonus drobnost nalezená při závěrečné regresi
+
+- [x] **Float precision artefakt v `total_amount`** (např. `343.50800000000004`
+  místo `343.51`) - součty částek (`pipeline.py`, `PATCH /items/{id}`,
+  `POST /invoices/merge`) teď procházejí přes `round(..., 2)`. Všimnuto při
+  finálním regresním testu, oprava bez rizika (jen zaokrouhlení při zápisu),
+  žádná migrace potřeba. Ověřeno na nově zpracované faktuře - čisté číslo bez
+  artefaktu. Existující už uložené hodnoty se retroaktivně neopravují (kosmetika,
+  ne chyba v datech).
+
 ## Log postupu
 
 **Po dokončení KRITICKÉ sekce (K1–K4)** — regresní E2E test celého flow proti

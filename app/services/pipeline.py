@@ -95,7 +95,7 @@ def process_invoice(invoice_id: int) -> None:
         # precetlo z radku "Celkem" na dokladu - jinak by fakturu s chybejicimi polozkami
         # (viz extraction_warning nize) klidne ukazovala jako "kompletni" s cislem, ktere
         # neodpovida tomu, co je v tabulce videt a jde zkontrolovat.
-        items_sum = sum(item.amount for item in extracted.line_items)
+        items_sum = round(sum(item.amount for item in extracted.line_items), 2)
         warning = extracted.extraction_warning
         if extracted.line_items:
             invoice.total_amount = items_sum

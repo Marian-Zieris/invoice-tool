@@ -176,7 +176,7 @@ def update_line_item(item_id: int, payload: LineItemUpdate, db: Session = Depend
     if "amount" in changes:
         # invoice.total_amount je vlastní sloupec, ne odvozená hodnota - bez tohohle by
         # ruční oprava částky položky zůstala neviditelná v hlavičce i patičce tabulky.
-        invoice.total_amount = sum(existing.amount for existing in invoice.line_items)
+        invoice.total_amount = round(sum(existing.amount for existing in invoice.line_items), 2)
 
     db.commit()
     db.refresh(item)
@@ -260,7 +260,7 @@ def merge_invoices(payload: MergeRequest, db: Session = Depends(get_db), current
             ))
             total_amount += item.amount
 
-    merged.total_amount = total_amount
+    merged.total_amount = round(total_amount, 2)
     db.commit()
     db.refresh(merged)
 
