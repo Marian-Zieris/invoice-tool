@@ -114,4 +114,11 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
 
 ## Log postupu
 
-(doplňováno průběžně)
+**Po dokončení KRITICKÉ sekce (K1–K4)** — regresní E2E test celého flow proti
+běžícímu dev stacku (standardní `docker compose up`, ne prod overlay):
+registrace → upload validní účtenky → `needs_review` se správnými daty →
+export → validní `.xlsx`; prázdný soubor → `ocr_failed` bez pádu; `.exe` →
+odmítnuto na uploadu; IDOR (cizí zákazník na cizí fakturu) → `404`. Vše
+prošlo beze změny chování oproti stavu před opravami - kritické opravy
+nic nerozbily. Testovací zákazníci/faktury po testu smazáni přes
+`DELETE /customers/{id}` (cascade přes ORM, ne přímé SQL).
