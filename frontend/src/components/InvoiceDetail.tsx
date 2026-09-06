@@ -13,7 +13,12 @@ const LOW_CONFIDENCE_THRESHOLD = 0.6;
 
 export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
   const invoiceQuery = useInvoiceDetail(invoiceId);
-  const itemsQuery = useInvoiceItems(invoiceId);
+  // Dokud faktura ještě běží OCR/LLM zpracováním, položky ještě neexistují -
+  // pollujeme, ať se jakmile zpracování doběhne, tabulka sama objeví, aniž
+  // by uživatel musel kliknout pryč a zpátky.
+  const pendingStatus = invoiceQuery.data?.status;
+  const isInvoicePending = pendingStatus === "uploaded" || pendingStatus === "processing";
+  const itemsQuery = useInvoiceItems(invoiceId, isInvoicePending);
   const updateItem = useUpdateItem();
   const updateInvoice = useUpdateInvoice();
   const [showRawText, setShowRawText] = useState(false);
@@ -36,7 +41,7 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
     );
   }
 
-  const isPending = invoice.status === "uploaded" || invoice.status === "processing";
+  const isPending = isInvoicePending;
   const isFailed = invoice.status === "ocr_failed" || invoice.status === "extraction_failed";
   const items = itemsQuery.data ?? [];
 

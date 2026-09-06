@@ -167,6 +167,18 @@ def update_line_item(item_id: int, payload: LineItemUpdate, db: Session = Depend
         return JSONResponse(status_code=404, content=api_error("Line item not found.", "line_item_not_found"))
 
     changes = payload.model_dump(exclude_unset=True)
+
+    if "amount" in changes and "amount_without_vat" not in changes:
+        # Ruční oprava celkové částky bez odpovídající opravy základu daně -
+        # starý rozpad DPH (dopočítaný z PŮVODNÍ částky) by po změně `amount`
+        # zůstal viset a dával by nesmyslné číslo (např. "DPH 21 %" u částky,
+        # která tomu vůbec neodpovídá - viz report od zákazníka). Bez jistoty,
+        # jaký je nový základ/sazba, je čestnější rozpad smazat a ukázat
+        # jen prostý mezisoučet (stejné pravidlo jako u LLM extrakce - nikdy
+        # nedopočítávat/neodhadovat DPH, když si nejsme jistí).
+        changes["amount_without_vat"] = None
+        changes["vat_rate"] = None
+
     for field, value in changes.items():
         setattr(item, field, value)
     if changes:

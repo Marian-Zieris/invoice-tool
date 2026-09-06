@@ -225,6 +225,64 @@ Stavy: `[ ]` čeká, `[~]` rozpracováno, `[x]` hotovo a ověřeno.
 
 ---
 
+## Zpětná vazba od zákazníka po nasazení (druhé kolo)
+
+Tři reálné problémy nahlášené po prvním použití appky se skutečnou fakturou -
+vyřešeno stejným postupem (plán → oprava → živé ověření → test → commit).
+
+- [x] **Součet po ruční opravě částky se "aktualizoval jen někde"**
+  Kořenová příčina, dohledaná na zákazníkově vlastní faktuře (Alza.cz, id 61):
+  `invoice.total_amount` se po `PATCH /items/{id}` s `amount` VŽDY přepočítal
+  správně (to fungovalo už předtím) - ale `amount_without_vat`/`vat_rate` u
+  upravené položky zůstaly z PŮVODNÍ částky. Rozpad DPH v UI ("Základ daně",
+  "DPH 21 %") je pak matematicky konzistentní sám se sebou (proto to nespadlo
+  na žádné validaci), ale vztažený ke starému číslu - u zákazníkovy faktury to
+  vypadalo jako "DPH 21 %" == 812 Kč ze základu 386 Kč, tedy ve skutečnosti
+  ~210 %. Řešení: `PATCH /items/{id}` teď při změně `amount` BEZ zároveň
+  dodaného `amount_without_vat` obě pole vynuluje - stejná zásada jako u LLM
+  extrakce ("nikdy nedopočítávej DPH, když si nejsi jistý"), radši ukázat
+  prostý mezisoučet než klamavě přesné číslo. Pokud zákazník pošle obě pole
+  najednou (vědomá kompletní oprava), nic se nemaže.
+  Ověřeno živě (reprodukce přesně zákazníkovy situace: položka 69 Kč se
+  vat_rate=21/amount_without_vat=57.02, PATCH na amount=800) i 2 novými
+  pytest testy - `18/18 zelených`.
+  Soubor: `app/routers/invoices.py`, `tests/test_line_item_updates.py` (nový).
+  **Vedlejší zjištění:** zákazníkova položka "Doprava" s částkou 800 Kč byla
+  jeho vlastní ruční úprava (`is_corrected=true` v DB) - originál faktury
+  uvádí dopravu za 69 Kč a celkovou částku 467 Kč, ne 1 198 Kč. Stojí za to
+  to zkontrolovat, jestli to byl záměr.
+
+- [x] **Review obrazovka se sama neaktualizuje, dokud faktura běží zpracováním**
+  Kořenová příčina: `useInvoices()` (seznam vlevo) už dřív pollovat uměl, ale
+  `useInvoiceDetail()`/`useInvoiceItems()` (detail otevřené faktury) ne -
+  jakmile OCR/LLM doběhlo, detail zůstal zamrzlý na starém stavu, dokud
+  uživatel neklikl na jinou fakturu a zpět (nová `queryKey` vynutila fetch).
+  Řešení: oba hooky teď pollují po 3s, dokud je faktura `uploaded`/`processing`
+  - `useInvoiceDetail` podle vlastního staženého statusu, `useInvoiceItems`
+  podle stavu předaného z `InvoiceDetail.tsx` (položky samy o sobě status nenesou).
+  Ověřeno: TypeScript build i produkční Vite build bez chyb. Živé kliknutí v
+  prohlížeči se znovu nepodařilo ověřit (Chrome automatizace stále nereaguje) -
+  logika je stejná jako u již ověřeného `useInvoices()` pollingu, jen aplikovaná
+  na zbylé dva hooky, které ho předtím neměly.
+  Soubory: `frontend/src/hooks/useInvoiceDetail.ts`, `useInvoiceItems.ts`,
+  `frontend/src/components/InvoiceDetail.tsx`.
+
+- [x] **"OCR bylo před opravami přesnější"**
+  Vyšetřeno empiricky, ne odhadem: stáhl jsem uložený `raw_ocr_text` zákazníkovy
+  faktury (Alza.cz, id 61) a spustil extrakci se STARÝM promptem (před D2, git
+  historie) i s NOVÝM, oba přímo proti Groq API na tom samém textu. Výsledek:
+  oba vrátily STEJNÝCH 3 položek se správným součtem 467 Kč - jediný rozdíl
+  mezi commity je přidané pole `currency_confidence` (potvrzeno `git diff`),
+  nic v částech promptu pro popis/kategorii/DPH. Reálný rozdíl mezi jednotlivými
+  běhy (jiné rozdělení popisu položky 2, jiná kategorie) je normální LLM
+  nedeterminismus (`temperature=0.1`), ne regrese způsobená mými změnami -
+  ověřeno tím, že i stejný (nový) prompt spuštěný dvakrát dává mírně odlišné,
+  ale stejně platné výsledky.
+  Přesto snížil `temperature` na `0.0` (bylo `0.1`) - extrakce strukturovaných
+  dat není kreativní úkol, nulová teplota dělá výsledky mezi jednotlivými
+  nahráními téhož typu dokladu předvídatelnější, bez rizika/nákladu.
+  Soubor: `app/services/llm.py`.
+
 ## Bonus drobnost nalezená při závěrečné regresi
 
 - [x] **Float precision artefakt v `total_amount`** (např. `343.50800000000004`

@@ -120,7 +120,10 @@ def _call_groq(system_prompt: str, raw_text: str) -> str:
                 {"role": "user", "content": raw_text[:MAX_INPUT_CHARS]},
             ],
             response_format={"type": "json_object"},
-            temperature=0.1,
+            # 0, ne 0.1 - stejná faktura zpracovaná dvakrát by měla dát stejný
+            # výsledek. Nižší náhodnost o nic nepřipravuje (nejde o kreativní
+            # úkol), jen dělá extrakci předvídatelnější mezi jednotlivými běhy.
+            temperature=0.0,
         )
     except APITimeoutError as exc:
         raise ExtractionError(f"Groq API request timed out: {exc}") from exc
