@@ -305,6 +305,40 @@ vyřešeno stejným postupem (plán → oprava → živé ověření → test �
   zelených (backend endpoint, kterého se tahle oprava netýká, beze změny).
   Soubory: `frontend/src/components/InvoiceList.tsx`, `icons.tsx`.
 
+## Zpětná vazba od zákazníka po nasazení (čtvrté kolo)
+
+Dvě funkční požadavky - review tabulka neuměla odstranit chybnou položku ani
+přidat chybějící, a nešlo fakturu označit jako zkontrolovanou beze změny dat.
+
+- [x] **Smazání/přidání položky v rozpisu faktury**
+  Nové endpointy `POST /invoices/{id}/items` (vytvoří prázdnou položku
+  "Nová položka" k rovnou vyplnění - žádná vymyšlená data, stejná zásada jako
+  u LLM extrakce) a `DELETE /items/{id}`. Oba přepočítávají `invoice.total_amount`
+  a posouvají status z `needs_review` na `reviewed` stejně jako existující
+  `PATCH /items/{id}`. V UI: ikona koše na konci každého řádku (viditelná při
+  najetí myší na řádek, stejný vzor jako u mazání faktury v seznamu - žádné
+  dodatečné potvrzení, smazání položky je málo destruktivní a snadno napravitelné
+  oproti mazání celé faktury) + tlačítko "Přidat položku" pod tabulkou.
+  Ověřeno živě na reálném scénáři z extraction_warning (účtenka, kde LLM
+  nerozpoznal jednu položku a součet neseděl na fakturní total) - přidání
+  chybějící položky a doplnění částky srovnalo součet přesně na hodnotu z
+  dokladu. Testováno i IDOR (cizí zákazník nemůže přidat/smazat položku
+  na cizí faktuře) a rekalkulace total_amount po create i delete - 23/23
+  testů zelených.
+  Soubory: `app/routers/invoices.py`, `tests/test_line_item_updates.py`,
+  `frontend/src/hooks/useCreateLineItem.ts` (nový), `useDeleteLineItem.ts` (nový),
+  `frontend/src/components/InvoiceDetail.tsx`, `icons.tsx`.
+
+- [x] **Explicitní "označit jako zkontrolováno" bez úpravy dat**
+  Nový `POST /invoices/{id}/confirm` - funguje jen z `needs_review` (jinde
+  vrátí `400 invalid_status`, aby nešlo "potvrdit" fakturu, která ještě běží
+  zpracováním nebo skončila s chybou). V UI tlačítko "Vypadá to dobře" vedle
+  stavového štítku, zobrazené jen dokud je faktura `needs_review`.
+  Ověřeno živě (přechod na `reviewed`, opakované volání správně odmítnuto) a
+  3 novými pytest testy (`tests/test_invoice_confirm.py`) vč. IDOR.
+  Soubory: `app/routers/invoices.py`, `tests/test_invoice_confirm.py` (nový),
+  `frontend/src/hooks/useConfirmInvoice.ts` (nový), `InvoiceDetail.tsx`.
+
 ## Bonus drobnost nalezená při závěrečné regresi
 
 - [x] **Float precision artefakt v `total_amount`** (např. `343.50800000000004`

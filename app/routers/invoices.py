@@ -132,6 +132,30 @@ def update_invoice(
     return api_success(result, "Invoice updated successfully.")
 
 
+@router.post("/invoices/{invoice_id}/confirm")
+def confirm_invoice(invoice_id: int, db: Session = Depends(get_db), current_customer: Customer = Depends(get_current_customer)):
+    """Ruční potvrzení "vypadá to dobře, nic neměním" - bez tohohle neměl
+    zákazník jak fakturu označit jako zkontrolovanou, pokud v ní nic neopravoval
+    (status se jinak posouvá na `reviewed` jen jako vedlejší efekt PATCH úpravy)."""
+    invoice = db.get(Invoice, invoice_id)
+    if invoice is None or invoice.customer_id != current_customer.id:
+        return JSONResponse(status_code=404, content=api_error("Invoice not found.", "invoice_not_found"))
+
+    if invoice.status != InvoiceStatus.NEEDS_REVIEW.value:
+        return JSONResponse(
+            status_code=400,
+            content=api_error("Only invoices awaiting review can be confirmed.", "invalid_status"),
+        )
+
+    invoice.status = InvoiceStatus.REVIEWED.value
+    db.commit()
+    db.refresh(invoice)
+
+    result = _invoice_summary_payload(invoice)
+    result["raw_ocr_text"] = invoice.raw_ocr_text or ""
+    return api_success(result, "Invoice confirmed as reviewed.")
+
+
 @router.delete("/invoices/{invoice_id}")
 def delete_invoice(invoice_id: int, db: Session = Depends(get_db), current_customer: Customer = Depends(get_current_customer)):
     invoice = db.get(Invoice, invoice_id)
@@ -158,6 +182,35 @@ def list_invoice_items(invoice_id: int, db: Session = Depends(get_db), current_c
         return JSONResponse(status_code=404, content=api_error("Invoice not found.", "invoice_not_found"))
 
     return api_success([_line_item_payload(item) for item in invoice.line_items], "Line items fetched successfully.")
+
+
+@router.post("/invoices/{invoice_id}/items")
+def create_line_item(invoice_id: int, db: Session = Depends(get_db), current_customer: Customer = Depends(get_current_customer)):
+    """Ruční přidání chybějící položky - LLM extrakce občas rozpoznaný fragment
+    textu vůbec nepřevede na položku (viz extraction_warning), tohle je jediný
+    způsob, jak takovou položku zákazník sám dodá, aniž by musel celou fakturu
+    nahrávat znovu. Vzniká jako prázdný řádek k rovnou vyplnění, ne s vymyšlenými
+    daty - stejná zásada jako u LLM (nikdy nevymýšlet konkrétní hodnoty)."""
+    invoice = db.get(Invoice, invoice_id)
+    if invoice is None or invoice.customer_id != current_customer.id:
+        return JSONResponse(status_code=404, content=api_error("Invoice not found.", "invoice_not_found"))
+
+    item = LineItem(
+        invoice_id=invoice.id,
+        description="Nová položka",
+        category="uncategorized",
+        amount=0.0,
+        confidence_score=1.0,
+        is_corrected=True,
+    )
+    db.add(item)
+
+    if invoice.status == InvoiceStatus.NEEDS_REVIEW.value:
+        invoice.status = InvoiceStatus.REVIEWED.value
+
+    db.commit()
+    db.refresh(item)
+    return api_success(_line_item_payload(item), "Line item created successfully.")
 
 
 @router.patch("/items/{item_id}")
@@ -198,6 +251,29 @@ def update_line_item(item_id: int, payload: LineItemUpdate, db: Session = Depend
         db.commit()
 
     return api_success(_line_item_payload(item), "Line item updated successfully.")
+
+
+@router.delete("/items/{item_id}")
+def delete_line_item(item_id: int, db: Session = Depends(get_db), current_customer: Customer = Depends(get_current_customer)):
+    """Odstranění chybně rozpoznané/duplicitní položky - LLM občas rozdělí
+    jeden řádek dokladu na dva, nebo si zachytí fragment, který položkou vůbec
+    není (viz extraction_warning)."""
+    item = db.get(LineItem, item_id)
+    if item is None or item.invoice.customer_id != current_customer.id:
+        return JSONResponse(status_code=404, content=api_error("Line item not found.", "line_item_not_found"))
+
+    invoice = item.invoice
+    db.delete(item)
+    db.flush()
+
+    # invoice.total_amount je vlastní sloupec, ne odvozená hodnota - stejný
+    # přepočet jako po ruční opravě částky (viz update_line_item výše).
+    invoice.total_amount = round(sum(existing.amount for existing in invoice.line_items), 2)
+    if invoice.status == InvoiceStatus.NEEDS_REVIEW.value:
+        invoice.status = InvoiceStatus.REVIEWED.value
+
+    db.commit()
+    return api_success(None, "Line item deleted successfully.")
 
 
 @router.post("/invoices/merge")

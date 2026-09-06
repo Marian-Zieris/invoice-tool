@@ -61,6 +61,40 @@ def test_editing_amount_alone_clears_stale_vat_breakdown(client, admin_headers, 
     assert invoice_response.json()["data"]["total_amount"] == 800.0
 
 
+def test_create_and_delete_line_item_recomputes_total(client, admin_headers, db_session):
+    token = _register_and_login(client, admin_headers)
+    invoice_id, _item_id = _seed_invoice_with_vat_item(db_session, "customer@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_response = client.post(f"/invoices/{invoice_id}/items", headers=headers)
+    assert create_response.status_code == 200
+    new_item = create_response.json()["data"]
+    assert new_item["description"]  # nese placeholder text, nikdy prázdný string
+    assert new_item["amount"] == 0.0
+
+    filled = client.patch(f"/items/{new_item['id']}", headers=headers, json={"amount": 50.0, "description": "Doplněk"})
+    assert filled.status_code == 200
+
+    after_create = client.get(f"/invoices/{invoice_id}", headers=headers)
+    assert after_create.json()["data"]["total_amount"] == 119.0  # 69 (seed) + 50 (nova)
+
+    delete_response = client.delete(f"/items/{new_item['id']}", headers=headers)
+    assert delete_response.status_code == 200
+
+    after_delete = client.get(f"/invoices/{invoice_id}", headers=headers)
+    assert after_delete.json()["data"]["total_amount"] == 69.0
+
+
+def test_line_item_create_delete_scoped_to_owning_customer(client, admin_headers, db_session):
+    _register_and_login(client, admin_headers, "owner@example.com")
+    other_token = _register_and_login(client, admin_headers, "attacker@example.com")
+    invoice_id, item_id = _seed_invoice_with_vat_item(db_session, "owner@example.com")
+    other_headers = {"Authorization": f"Bearer {other_token}"}
+
+    assert client.post(f"/invoices/{invoice_id}/items", headers=other_headers).status_code == 404
+    assert client.delete(f"/items/{item_id}", headers=other_headers).status_code == 404
+
+
 def test_editing_amount_with_explicit_vat_keeps_it(client, admin_headers, db_session):
     """Když zákazník opraví částku A ZÁROVEŇ dodá i nový základ daně v tom
     samém requestu, nemá se nic mazat - jde o vědomou, úplnou opravu."""

@@ -3,11 +3,14 @@ import { useInvoiceDetail } from "../hooks/useInvoiceDetail";
 import { useInvoiceItems } from "../hooks/useInvoiceItems";
 import { useUpdateItem } from "../hooks/useUpdateItem";
 import { useUpdateInvoice } from "../hooks/useUpdateInvoice";
+import { useCreateLineItem } from "../hooks/useCreateLineItem";
+import { useDeleteLineItem } from "../hooks/useDeleteLineItem";
+import { useConfirmInvoice } from "../hooks/useConfirmInvoice";
 import { formatAmount, formatDate, formatDateTime } from "../lib/format";
 import { StatusPill } from "./StatusPill";
 import { ConfidenceMeter } from "./ConfidenceMeter";
 import { EditableCell } from "./EditableCell";
-import { EditIcon, SpinnerIcon, WarningIcon } from "./icons";
+import { CheckIcon, EditIcon, PlusIcon, SpinnerIcon, TrashIcon, WarningIcon } from "./icons";
 
 const LOW_CONFIDENCE_THRESHOLD = 0.6;
 
@@ -21,6 +24,9 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
   const itemsQuery = useInvoiceItems(invoiceId, isInvoicePending);
   const updateItem = useUpdateItem();
   const updateInvoice = useUpdateInvoice();
+  const createItem = useCreateLineItem();
+  const deleteItem = useDeleteLineItem();
+  const confirmInvoice = useConfirmInvoice();
   const [showRawText, setShowRawText] = useState(false);
 
   if (invoiceId === null) {
@@ -54,7 +60,9 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
     items.map((item) => `${item.supplier_name ?? invoice.supplier_name ?? ""}__${item.invoice_date ?? invoice.invoice_date ?? ""}`),
   );
   const showItemOrigin = distinctOrigins.size > 1;
-  const columnCount = showItemOrigin ? 6 : 4;
+  // +1 za sloupec s tlačítkem na smazání položky (viz <thead>/<tbody> níže).
+  const columnCount = (showItemOrigin ? 6 : 4) + 1;
+  const needsReview = invoice.status === "needs_review";
 
   // Jen když MÁ položka bez_DPH vyplněné - to se stane výhradně když to sám doklad uváděl
   // (viz llm.py), takže "chybí u některé položky" typicky znamená "dodavatel není plátce
@@ -92,6 +100,18 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
           </h2>
           <div className="flex flex-wrap items-center gap-3.5 text-[13px] text-ink-muted">
             <StatusPill status={invoice.status} />
+            {needsReview && (
+              <button
+                type="button"
+                disabled={confirmInvoice.isPending}
+                onClick={() => confirmInvoice.mutate(invoice.id)}
+                title="Označí fakturu jako zkontrolovanou beze změny dat"
+                className="flex items-center gap-1.5 rounded-full bg-good-soft px-3 py-1 text-[12px] font-semibold text-good transition-colors hover:brightness-95 disabled:opacity-50"
+              >
+                <CheckIcon className="h-3 w-3" />
+                {confirmInvoice.isPending ? "Ukládám…" : "Vypadá to dobře"}
+              </button>
+            )}
             <span>{invoice.original_filename}</span>
             <EditableCell
               value={invoice.invoice_date ?? ""}
@@ -218,13 +238,14 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
                     <th className="px-[18px] pb-2.5 pt-3.5 text-right text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                       Částka
                     </th>
+                    <th className="w-10 px-2 pb-2.5 pt-3.5"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item) => {
                     const isLow = item.confidence_score < LOW_CONFIDENCE_THRESHOLD;
                     return (
-                      <tr key={item.id} className={isLow ? "bg-bad-soft" : ""}>
+                      <tr key={item.id} className={`group ${isLow ? "bg-bad-soft" : ""}`}>
                         {showItemOrigin && (
                           <>
                             <td className={`px-[18px] py-3 text-ink-muted ${isLow ? "border-transparent" : "border-t border-border"}`}>
@@ -274,6 +295,16 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
                             }}
                           />
                         </td>
+                        <td className={`px-2 py-3 text-center ${isLow ? "border-transparent" : "border-t border-border"}`}>
+                          <button
+                            type="button"
+                            title="Smazat položku"
+                            onClick={() => deleteItem.mutate({ itemId: item.id, invoiceId: invoice.id })}
+                            className="rounded-[8px] p-1.5 text-ink-muted opacity-0 transition-opacity hover:bg-bad-soft hover:text-bad group-hover:opacity-100"
+                          >
+                            <TrashIcon className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -283,38 +314,51 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: number | null }) {
                     {vatBreakdown && (
                       <>
                         <tr>
-                          <td colSpan={columnCount - 1} className="border-t border-border px-[18px] py-2 text-right text-[12.5px] text-ink-muted">
+                          <td colSpan={columnCount - 2} className="border-t border-border px-[18px] py-2 text-right text-[12.5px] text-ink-muted">
                             Základ daně
                           </td>
                           <td className="border-t border-border px-[18px] py-2 text-right font-mono text-[12.5px] tabular-nums text-ink-muted">
                             {formatAmount(vatBreakdown.vatBaseTotal, invoice.currency)}
                           </td>
+                          <td className="border-t border-border"></td>
                         </tr>
                         {vatBreakdown.rateRows.map((rateRow) => (
                           <tr key={rateRow.label}>
-                            <td colSpan={columnCount - 1} className="px-[18px] py-2 text-right text-[12.5px] text-ink-muted">
+                            <td colSpan={columnCount - 2} className="px-[18px] py-2 text-right text-[12.5px] text-ink-muted">
                               {rateRow.label}
                             </td>
                             <td className="px-[18px] py-2 text-right font-mono text-[12.5px] tabular-nums text-ink-muted">
                               {formatAmount(rateRow.amount, invoice.currency)}
                             </td>
+                            <td></td>
                           </tr>
                         ))}
                       </>
                     )}
                     <tr>
-                      <td colSpan={columnCount - 1} className="border-t border-border px-[18px] py-3.5 font-bold text-ink">
+                      <td colSpan={columnCount - 2} className="border-t border-border px-[18px] py-3.5 font-bold text-ink">
                         {vatBreakdown ? "Celkem s DPH" : "Celkem"}
                       </td>
                       <td className="border-t border-border px-[18px] py-3.5 text-right font-mono font-bold tabular-nums text-ink">
                         {formatAmount(invoice.total_amount, invoice.currency)}
                       </td>
+                      <td className="border-t border-border"></td>
                     </tr>
                   </tfoot>
                 )}
               </table>
             </div>
           </div>
+
+          <button
+            type="button"
+            disabled={createItem.isPending}
+            onClick={() => createItem.mutate(invoice.id)}
+            className="mt-3 flex items-center gap-1.5 text-[12.5px] font-semibold text-accent hover:underline disabled:opacity-50"
+          >
+            <PlusIcon className="h-3.5 w-3.5" />
+            {createItem.isPending ? "Přidávám…" : "Přidat položku"}
+          </button>
 
           {lowConfidenceItem && (
             <div className="glass-panel mt-4 flex items-start gap-2.5 rounded-[16px] p-3.5 text-[12.5px] leading-relaxed text-ink-muted">
